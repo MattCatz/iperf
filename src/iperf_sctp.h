@@ -24,8 +24,8 @@
  * This code is distributed under a BSD style license, see the LICENSE
  * file for complete information.
  */
-#ifndef        IPERF_SCTP_H
-#define        IPERF_SCTP_H
+#ifndef IPERF_SCTP_H
+#define IPERF_SCTP_H
 
 /**
  * iperf_sctp_accept -- accepts a new SCTP connection
@@ -34,7 +34,8 @@
  *returns 0 on success
  *
  */
-int iperf_sctp_accept(struct iperf_test *);
+int
+iperf_sctp_accept(struct iperf_test*);
 
 /**
  * iperf_sctp_recv -- receives the data for sctp
@@ -42,8 +43,8 @@ int iperf_sctp_accept(struct iperf_test *);
  *returns state of packet received
  *
  */
-int iperf_sctp_recv(struct iperf_stream *);
-
+int
+iperf_sctp_recv(struct iperf_stream*);
 
 /**
  * iperf_sctp_send -- sends the client data for sctp
@@ -51,18 +52,22 @@ int iperf_sctp_recv(struct iperf_stream *);
  * returns: bytes sent
  *
  */
-int iperf_sctp_send(struct iperf_stream *);
+int
+iperf_sctp_send(struct iperf_stream*);
 
+int
+iperf_sctp_listen(struct iperf_test*);
 
-int iperf_sctp_listen(struct iperf_test *);
+int
+iperf_sctp_connect(struct iperf_test*);
 
-int iperf_sctp_connect(struct iperf_test *);
-
-int iperf_sctp_init(struct iperf_test *test);
+int
+iperf_sctp_init(struct iperf_test* test);
 
 #define IPERF_SCTP_CLIENT 0
 #define IPERF_SCTP_SERVER 1
 
-int iperf_sctp_bindx(struct iperf_test *test, int s, int is_server);
+int
+iperf_sctp_bindx(struct iperf_test* test, int s, int is_server);
 
 #endif

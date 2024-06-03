@@ -25,7 +25,6 @@
  * file for complete information.
  */
 
-
 #include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -33,58 +32,57 @@
 
 #include "iperf.h"
 #include "iperf_api.h"
-
+#include "units.h"
 #include "version.h"
 
-#include "units.h"
-
-int test_iperf_set_test_bind_port(struct iperf_test *test)
+int
+test_iperf_set_test_bind_port(struct iperf_test* test)
 {
-    int port;
-    port = iperf_get_test_bind_port(test);
-    iperf_set_test_bind_port(test, 5202);
-    port = iperf_get_test_bind_port(test);
-    assert(port == 5202);
-    return 0;
-}
-
-int test_iperf_set_mss(struct iperf_test *test)
-{
-    int mss = iperf_get_test_mss(test);
-    iperf_set_test_mss(test, 535);
-    mss = iperf_get_test_mss(test);
-    assert(mss == 535);
-    return 0;
+  int port;
+  port = iperf_get_test_bind_port(test);
+  iperf_set_test_bind_port(test, 5202);
+  port = iperf_get_test_bind_port(test);
+  assert(port == 5202);
+  return 0;
 }
 
 int
-main(int argc, char **argv)
+test_iperf_set_mss(struct iperf_test* test)
 {
-    const char *ver;
-    struct iperf_test *test;
-    int sint, gint;
+  int mss = iperf_get_test_mss(test);
+  iperf_set_test_mss(test, 535);
+  mss = iperf_get_test_mss(test);
+  assert(mss == 535);
+  return 0;
+}
 
-    ver = iperf_get_iperf_version();
-    assert(strcmp(ver, IPERF_VERSION) == 0);
+int
+main(int argc, char** argv)
+{
+  const char* ver;
+  struct iperf_test* test;
+  int sint, gint;
 
-    test = iperf_new_test();
-    assert(test != NULL);
+  ver = iperf_get_iperf_version();
+  assert(strcmp(ver, IPERF_VERSION) == 0);
 
-    iperf_defaults(test);
+  test = iperf_new_test();
+  assert(test != NULL);
 
-    sint = 10;
-    iperf_set_test_connect_timeout(test, sint);
-    gint = iperf_get_test_connect_timeout(test);
-    assert(sint == gint);
+  iperf_defaults(test);
 
-    int ret;
-    ret = test_iperf_set_test_bind_port(test);
+  sint = 10;
+  iperf_set_test_connect_timeout(test, sint);
+  gint = iperf_get_test_connect_timeout(test);
+  assert(sint == gint);
 
-    ret += test_iperf_set_mss(test);
+  int ret;
+  ret = test_iperf_set_test_bind_port(test);
 
-    if (ret < 0)
-    {
-        return -1;
-    }
-    return 0;
+  ret += test_iperf_set_mss(test);
+
+  if (ret < 0) {
+    return -1;
+  }
+  return 0;
 }

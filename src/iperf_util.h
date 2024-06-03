@@ -27,41 +27,55 @@
 #ifndef __IPERF_UTIL_H
 #define __IPERF_UTIL_H
 
-#include "iperf_config.h"
 #include "cjson.h"
-#include <sys/select.h>
+#include "iperf_config.h"
 #include <stddef.h>
+#include <sys/select.h>
 
-int readentropy(void *out, size_t outsize);
+int
+readentropy(void* out, size_t outsize);
 
-void fill_with_repeating_pattern(void *out, size_t outsize);
+void
+fill_with_repeating_pattern(void* out, size_t outsize);
 
-void make_cookie(char *);
+void
+make_cookie(char*);
 
-int is_closed(int);
+int
+is_closed(int);
 
-double timeval_to_double(struct timeval *tv);
+double
+timeval_to_double(struct timeval* tv);
 
-int timeval_equals(struct timeval *tv0, struct timeval *tv1);
+int
+timeval_equals(struct timeval* tv0, struct timeval* tv1);
 
-double timeval_diff(struct timeval *tv0, struct timeval *tv1);
+double
+timeval_diff(struct timeval* tv0, struct timeval* tv1);
 
-void cpu_util(double pcpu[3]);
+void
+cpu_util(double pcpu[3]);
 
-const char* get_system_info(void);
+const char*
+get_system_info(void);
 
-const char* get_optional_features(void);
+const char*
+get_optional_features(void);
 
-cJSON* iperf_json_printf(const char *format, ...);
+cJSON*
+iperf_json_printf(const char* format, ...);
 
-void iperf_dump_fdset(FILE *fp, const char *str, int nfds, fd_set *fds);
+void
+iperf_dump_fdset(FILE* fp, const char* str, int nfds, fd_set* fds);
 
 #ifndef HAVE_DAEMON
-extern int daemon(int nochdir, int noclose);
+extern int
+daemon(int nochdir, int noclose);
 #endif /* HAVE_DAEMON */
 
 #ifndef HAVE_GETLINE
-ssize_t getline(char **buf, size_t *bufsiz, FILE *fp);
+ssize_t
+getline(char** buf, size_t* bufsiz, FILE* fp);
 #endif /* HAVE_GETLINE */
 
 #endif

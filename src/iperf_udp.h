@@ -27,14 +27,14 @@
 #ifndef __IPERF_UDP_H
 #define __IPERF_UDP_H
 
-
 /**
  * iperf_udp_recv -- receives the client data for UDP
  *
  *returns state of packet received
  *
  */
-int iperf_udp_recv(struct iperf_stream *);
+int
+iperf_udp_recv(struct iperf_stream*);
 
 /**
  * iperf_udp_send -- sends the client data for UDP
@@ -42,8 +42,8 @@ int iperf_udp_recv(struct iperf_stream *);
  * returns: bytes sent
  *
  */
-int iperf_udp_send(struct iperf_stream *) /* __attribute__((hot)) */;
-
+int
+iperf_udp_send(struct iperf_stream*) /* __attribute__((hot)) */;
 
 /**
  * iperf_udp_accept -- accepts a new UDP connection
@@ -51,14 +51,16 @@ int iperf_udp_send(struct iperf_stream *) /* __attribute__((hot)) */;
  *returns 0 on success
  *
  */
-int iperf_udp_accept(struct iperf_test *);
+int
+iperf_udp_accept(struct iperf_test*);
 
+int
+iperf_udp_listen(struct iperf_test*);
 
-int iperf_udp_listen(struct iperf_test *);
+int
+iperf_udp_connect(struct iperf_test*);
 
-int iperf_udp_connect(struct iperf_test *);
-
-int iperf_udp_init(struct iperf_test *);
-
+int
+iperf_udp_init(struct iperf_test*);
 
 #endif

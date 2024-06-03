@@ -32,15 +32,14 @@
 #include "iperf_util.h"
 
 int
-main(int argc, char **argv)
+main(int argc, char** argv)
 {
-    char     cookie[37];
-    make_cookie(cookie);
-    printf("cookie: '%s'\n", cookie);
-    if (strlen(cookie) != 36)
-    {
-	printf("Not 36 characters long!\n");
-	exit(-1);
-    }
-    exit(0);
+  char cookie[37];
+  make_cookie(cookie);
+  printf("cookie: '%s'\n", cookie);
+  if (strlen(cookie) != 36) {
+    printf("Not 36 characters long!\n");
+    exit(-1);
+  }
+  exit(0);
 }
