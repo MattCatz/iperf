@@ -40,10 +40,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "iperf.h"
 #include "iperf_api.h"
-#include "iperf_locale.h"
-#include "iperf_util.h"
 #include "net.h"
 #include "units.h"
 
@@ -149,9 +146,9 @@ run(struct iperf_test* test)
   /* Ignore SIGPIPE to simplify error handling */
   signal(SIGPIPE, SIG_IGN);
 
-  switch (test->role) {
+  switch (iperf_get_test_role(test)) {
     case 's':
-      if (test->daemon) {
+      if (iperf_get_test_daemon(test)) {
         int rc;
         rc = daemon(1, 0);
         if (rc < 0) {
@@ -166,10 +163,9 @@ run(struct iperf_test* test)
       for (;;) {
         int rc;
         rc = iperf_run_server(test);
-        test->server_last_run_rc = rc;
         if (rc < 0) {
           iperf_err(test, "error - %s", iperf_strerror(i_errno));
-          if (test->json_output) {
+          if (iperf_get_test_json_output(test)) {
             if (iperf_json_finish(test) < 0)
               return -1;
           }

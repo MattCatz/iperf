@@ -170,6 +170,8 @@ typedef u_int64_t atomic_uint_fast64_t;
   char* iperf_get_test_congestion_control(struct iperf_test* ipt);
   int iperf_get_test_mss(struct iperf_test* ipt);
   int iperf_get_mapped_v4(struct iperf_test* ipt);
+  int iperf_get_test_daemon(struct iperf_test* ipt);
+  int iperf_get_test_server_last_run_rc(struct iperf_test* ipt);
 
   /* Setter routines for some fields inside iperf_test. */
   void iperf_set_verbose(struct iperf_test* ipt, int verbose);

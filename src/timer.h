@@ -70,7 +70,7 @@ typedef struct TimerStruct
 
 /* Set up a timer, either periodic or one-shot. Returns (Timer*) 0 on errors.
  */
-extern Timer*
+Timer*
 tmr_create(struct iperf_time* nowP,
            TimerProc* timer_proc,
            TimerClientData client_data,
@@ -81,31 +81,31 @@ tmr_create(struct iperf_time* nowP,
 ** can just put the call to this routine right in your select().  Returns
 ** (struct timeval*) 0 if no timers are pending.
 */
-extern struct timeval*
+struct timeval*
 tmr_timeout(struct iperf_time* nowP) /* __attribute__((hot)) */;
 
 /* Run the list of timers. Your main program needs to call this every so often,
 ** or as indicated by tmr_timeout().
 */
-extern void
+void
 tmr_run(struct iperf_time* nowP) /* __attribute__((hot)) */;
 
 /* Reset the clock on a timer, to current time plus the original timeout. */
-extern void
+void
 tmr_reset(struct iperf_time* nowP, Timer* timer);
 
 /* Deschedule a timer.  Note that non-periodic timers are automatically
 ** descheduled when they run, so you don't have to call this on them.
 */
-extern void
+void
 tmr_cancel(Timer* timer);
 
 /* Clean up the timers package, freeing any unused storage. */
-extern void
+void
 tmr_cleanup(void);
 
 /* Cancel all timers and free storage, usually in preparation for exiting. */
-extern void
+void
 tmr_destroy(void);
 
 #endif /* __TIMER_H */

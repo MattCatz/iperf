@@ -459,6 +459,12 @@ iperf_get_mapped_v4(struct iperf_test* ipt)
   return ipt->mapped_v4;
 }
 
+int
+iperf_get_test_daemon(struct iperf_test* ipt)
+{
+  return ipt->daemon;
+}
+
 /************** Setter routines for some fields inside iperf_test
  * *************/
 

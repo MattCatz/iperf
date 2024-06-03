@@ -443,8 +443,8 @@ create_server_omit_timer(struct iperf_test* test)
   return 0;
 }
 
-static void
-cleanup_server(struct iperf_test* test)
+static int
+cleanup_server(struct iperf_test* test, int rc)
 {
   struct iperf_stream* sp;
 
@@ -524,6 +524,9 @@ cleanup_server(struct iperf_test* test)
     tmr_cancel(test->timer);
     test->timer = NULL;
   }
+
+  test->server_last_run_rc = rc;
+  return rc;
 }
 
 int
@@ -549,19 +552,19 @@ iperf_run_server(struct iperf_test* test)
   int64_t rcv_timeout_us;
 
   if (test->logfile)
-    if (iperf_open_logfile(test) < 0)
-      return -2;
+    if (iperf_open_logfile(test) < 0) {
+      test->server_last_run_rc = -2;
+      return test->server_last_run_rc;
+    }
 
   if (test->affinity != -1)
     if (iperf_setaffinity(test, test->affinity) != 0) {
-      cleanup_server(test);
-      return -2;
+      return cleanup_server(test, -2);
     }
 
   if (test->json_output)
     if (iperf_json_start(test) < 0) {
-      cleanup_server(test);
-      return -2;
+      return cleanup_server(test, -2);
     }
 
   if (test->json_output) {
@@ -578,8 +581,7 @@ iperf_run_server(struct iperf_test* test)
 
   // Open socket and listen
   if (iperf_server_listen(test) < 0) {
-    cleanup_server(test);
-    return -2;
+    return cleanup_server(test, -2);
   }
 
   iperf_time_now(
@@ -597,7 +599,7 @@ iperf_run_server(struct iperf_test* test)
     // Check if average transfer rate was exceeded (condition set in the
     // callback routines)
     if (test->bitrate_limit_exceeded) {
-      cleanup_server(test);
+      cleanup_server(test,-1);
       i_errno = IETOTALRATE;
       return -1;
     }
@@ -637,7 +639,7 @@ iperf_run_server(struct iperf_test* test)
 
     result = select(test->max_fd + 1, &read_set, &write_set, NULL, timeout);
     if (result < 0 && errno != EINTR) {
-      cleanup_server(test);
+      cleanup_server(test, -1);
       i_errno = IESELECT;
       return -1;
     } else if (result == 0) {
@@ -662,7 +664,7 @@ iperf_run_server(struct iperf_test* test)
                      "connection request was received for %d sec\n",
                      test->server_forced_idle_restarts_count,
                      test->settings->idle_timeout);
-            cleanup_server(test);
+            cleanup_server(test, 0);
             if (iperf_get_test_one_off(test)) {
               if (test->debug)
                 printf("No connection request was received for "
@@ -689,8 +691,7 @@ iperf_run_server(struct iperf_test* test)
                         "Server restart (#%d) during active test "
                         "due to idle timeout for receiving data",
                         test->server_forced_no_msg_restarts_count);
-            cleanup_server(test);
-            return -1;
+            return cleanup_server(test, -1);
           }
         }
       }
@@ -706,8 +707,7 @@ iperf_run_server(struct iperf_test* test)
       if (FD_ISSET(test->listener, &read_set)) {
         if (test->state != CREATE_STREAMS) {
           if (iperf_accept(test) < 0) {
-            cleanup_server(test);
-            return -1;
+            return cleanup_server(test, -1);
           }
           FD_CLR(test->listener, &read_set);
 
@@ -726,8 +726,7 @@ iperf_run_server(struct iperf_test* test)
       }
       if (FD_ISSET(test->ctrl_sck, &read_set)) {
         if (iperf_handle_message_server(test) < 0) {
-          cleanup_server(test);
-          return -1;
+          return cleanup_server(test, -1);
         }
         FD_CLR(test->ctrl_sck, &read_set);
       }
@@ -736,14 +735,12 @@ iperf_run_server(struct iperf_test* test)
         if (FD_ISSET(test->prot_listener, &read_set)) {
 
           if ((s = test->protocol->accept(test)) < 0) {
-            cleanup_server(test);
-            return -1;
+            return cleanup_server(test, -1);
           }
 
           /* apply other common socket options */
           if (iperf_common_sockopts(test, s) < 0) {
-            cleanup_server(test);
-            return -1;
+            return cleanup_server(test, -1);
           }
 
           if (!is_closed(s)) {
@@ -757,7 +754,7 @@ iperf_run_server(struct iperf_test* test)
                     0) {
                   saved_errno = errno;
                   close(s);
-                  cleanup_server(test);
+                  cleanup_server(test, -1);
                   errno = saved_errno;
                   i_errno = IESETUSERTIMEOUT;
                   return -1;
@@ -789,7 +786,7 @@ iperf_run_server(struct iperf_test* test)
                   } else {
                     saved_errno = errno;
                     close(s);
-                    cleanup_server(test);
+                    cleanup_server(test,-1);
                     errno = saved_errno;
                     i_errno = IESETCONGESTION;
                     return -1;
@@ -804,7 +801,7 @@ iperf_run_server(struct iperf_test* test)
                 if (rc < 0 && test->congestion) {
                   saved_errno = errno;
                   close(s);
-                  cleanup_server(test);
+                  cleanup_server(test, -1);
                   errno = saved_errno;
                   i_errno = IESETCONGESTION;
                   return -1;
@@ -842,8 +839,7 @@ iperf_run_server(struct iperf_test* test)
             if (flag != -1) {
               sp = iperf_new_stream(test, s, flag);
               if (!sp) {
-                cleanup_server(test);
-                return -1;
+                return cleanup_server(test, -1);
               }
 
               if (s > test->max_fd)
@@ -875,7 +871,7 @@ iperf_run_server(struct iperf_test* test)
                                    test->bind_address,
                                    test->bind_dev,
                                    test->server_port)) < 0) {
-                cleanup_server(test);
+                cleanup_server(test, -1);
                 i_errno = IELISTEN;
                 return -1;
               }
@@ -900,7 +896,7 @@ iperf_run_server(struct iperf_test* test)
                         "%" PRIu64 " bps exceeded %" PRIu64 " bps limit",
                         total_requested_rate,
                         test->settings->bitrate_limit);
-            cleanup_server(test);
+            cleanup_server(test, -1);
             i_errno = IETOTALRATE;
             return -1;
           }
@@ -909,36 +905,30 @@ iperf_run_server(struct iperf_test* test)
           cpu_util(NULL);
 
           if (iperf_set_send_state(test, TEST_START) != 0) {
-            cleanup_server(test);
-            return -1;
+            return cleanup_server(test, -1);
           }
           if (iperf_init_test(test) < 0) {
-            cleanup_server(test);
-            return -1;
+            return cleanup_server(test, -1);
           }
           if (create_server_timers(test) < 0) {
-            cleanup_server(test);
-            return -1;
+            return cleanup_server(test, -1);
           }
           if (create_server_omit_timer(test) < 0) {
-            cleanup_server(test);
-            return -1;
+            return cleanup_server(test, -1);
           }
           if (test->mode != RECEIVER)
             if (iperf_create_send_timers(test) < 0) {
-              cleanup_server(test);
-              return -1;
+            return cleanup_server(test, -1);
             }
           if (iperf_set_send_state(test, TEST_RUNNING) != 0) {
-            cleanup_server(test);
-            return -1;
+            return cleanup_server(test, -1);
           }
 
           /* Create and spin up threads */
           pthread_attr_t attr;
           if (pthread_attr_init(&attr) != 0) {
             i_errno = IEPTHREADATTRINIT;
-            cleanup_server(test);
+            cleanup_server(test, 0);
           };
 
           SLIST_FOREACH(sp, &test->streams, streams)
@@ -946,8 +936,7 @@ iperf_run_server(struct iperf_test* test)
             if (pthread_create(
                   &(sp->thr), &attr, &iperf_server_worker_run, sp) != 0) {
               i_errno = IEPTHREADCREATE;
-              cleanup_server(test);
-              return -1;
+              return cleanup_server(test, -1);
             }
             if (test->debug_level >= DEBUG_LEVEL_INFO) {
               iperf_printf(test, "Thread FD %d created\n", sp->socket);
@@ -958,7 +947,7 @@ iperf_run_server(struct iperf_test* test)
           }
           if (pthread_attr_destroy(&attr) != 0) {
             i_errno = IEPTHREADATTRDESTROY;
-            cleanup_server(test);
+            cleanup_server(test, 0);
           };
         }
       }
@@ -978,11 +967,11 @@ iperf_run_server(struct iperf_test* test)
   }
 
   iflush(test);
-  cleanup_server(test);
+  cleanup_server(test, 0);
 
   if (test->server_affinity != -1)
-    if (iperf_clearaffinity(test) != 0)
-      return -1;
+    if (iperf_clearaffinity(test) != 0) 
+      test->server_last_run_rc = -1;
 
-  return 0;
+  return test->server_last_run_rc;
 }
