@@ -39,9 +39,9 @@
 #include <sys/select.h>
 #include <limits.h>
 
-#ifdef HAVE_NETINET_SCTP_H
+#ifdef HAVE_SCTP_H
 #include <netinet/sctp.h>
-#endif /* HAVE_NETINET_SCTP_H */
+#endif /* HAVE_SCTP_H */
 
 #include "iperf.h"
 #include "iperf_api.h"

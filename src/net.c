@@ -423,7 +423,7 @@ Nread(int fd, char *buf, size_t count, int prot)
          * to be able to read some bytes every nread_timeout seconds.
          */
         if (nleft > 0) {
-            struct iperf_time now;
+            struct iperf_time now = {0};
 
             /*
              * Also, we have an approximate upper limit for the total time

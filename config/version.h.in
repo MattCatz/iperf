@@ -1,0 +1,1 @@
+#define IPERF_VERSION "@PKG_VERSION@"

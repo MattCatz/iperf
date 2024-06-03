@@ -40,7 +40,7 @@ extern "C" { /* open extern "C" */
  * Atomic types highly desired, but if not, we approximate what we need
  * with normal integers and warn.
  */
-#ifdef HAVE_STDATOMIC_H
+#ifdef HAVE_ATOMIC
 #include <stdatomic.h>
 #else
 #warning "No <stdatomic.h> available"
