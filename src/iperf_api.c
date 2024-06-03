@@ -80,7 +80,7 @@
 #endif /* HAVE_SCTP_H */
 #include "timer.h"
 
-#include "cjson.h"
+#include "cJSON.h"
 #include "iperf_locale.h"
 #include "iperf_util.h"
 #include "units.h"

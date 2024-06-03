@@ -27,7 +27,7 @@
 #ifndef __IPERF_UTIL_H
 #define __IPERF_UTIL_H
 
-#include "cjson.h"
+#include "cJSON.h"
 #include "iperf_config.h"
 #include <stddef.h>
 #include <sys/select.h>

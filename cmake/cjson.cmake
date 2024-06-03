@@ -1,0 +1,6 @@
+set(ENABLE_CJSON_TEST OFF)
+set(ENABLE_CJSON_UNINSTALL OFF)
+set(BUILD_SHARED_LIBS OFF)
+set(ENABLE_HIDDEN_SYMBOLS ON)
+add_subdirectory(cjson)
+include_directories(cjson)

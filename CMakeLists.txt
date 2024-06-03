@@ -37,6 +37,7 @@ include(cmake/configure.cmake)
 include(cmake/atomic.cmake)
 include(cmake/sctp.cmake)
 include(cmake/openssl.cmake)
+include(cmake/cjson.cmake)
 
 configure_file(config/iperf_config.h.in config/iperf_config.h @ONLY)
 configure_file(config/version.h.in config/version.h @ONLY)

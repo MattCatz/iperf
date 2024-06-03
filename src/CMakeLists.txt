@@ -1,5 +1,4 @@
 set(_libiperf_private
-        cjson.c
         dscp.c
         net.c
         tcp_info.c
@@ -28,7 +27,7 @@ option(binary "Build iperf3 binary" ON)
 
 add_library(_libiperf_private OBJECT ${_libiperf_private})
 set_target_properties(_libiperf_private PROPERTIES C_VISIBILITY_PRESET hidden)
-target_link_libraries(_libiperf_private PUBLIC ${MATH} ${PTHREADS})
+target_link_libraries(_libiperf_private PUBLIC ${PTHREADS} cjson)
 
 if(OPENSSL)
         target_link_libraries(_libiperf_private PUBLIC ${OPENSSL} ${CRYPTO})
@@ -41,9 +40,8 @@ endif()
 add_library(_libiperf_public OBJECT ${_libiperf_public})
 set_target_properties(_libiperf_public PROPERTIES C_VISIBILITY_PRESET default)
 set_target_properties(_libiperf_public PROPERTIES PUBLIC_HEADER iperf_api.h)
-target_link_libraries(_libiperf_public PUBLIC ${MATH} ${PTHREADS})
+target_link_libraries(_libiperf_public PUBLIC ${PTHREADS} cjson)
 target_include_directories(_libiperf_public PUBLIC ${CMAKE_CURRENT_LIST_DIR})
-
 
 if(static)
         add_library(libiperf_static STATIC $<TARGET_OBJECTS:_libiperf_public> $<TARGET_OBJECTS:_libiperf_private>)

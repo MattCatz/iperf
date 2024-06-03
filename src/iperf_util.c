@@ -46,7 +46,7 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "cjson.h"
+#include "cJSON.h"
 #include "iperf.h"
 #include "iperf_api.h"
 

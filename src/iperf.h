@@ -50,7 +50,7 @@
 #include <sys/param.h>
 #endif /* HAVE_CPUSET_SETAFFINITY */
 
-#include "cjson.h"
+#include "cJSON.h"
 #include "iperf_time.h"
 #include "portable_endian.h"
 #include "queue.h"
