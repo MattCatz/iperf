@@ -44,6 +44,7 @@ typedef union
   long l;
 } TimerClientData;
 
+struct timeval;
 extern TimerClientData JunkClientData; /* for use when you don't care */
 
 /* The TimerProc gets called when the timer expires.  It gets passed
@@ -75,12 +76,12 @@ tmr_create(struct iperf_time* nowP,
            int64_t usecs,
            int periodic);
 
-/* Returns a timeout indicating how long until the next timer triggers.  You
-** can just put the call to this routine right in your select().  Returns
-** (struct timeval*) 0 if no timers are pending.
+/* 
+** In the case of a pending timer a 1 is returned and timer is updated.
+** In the case of no pending timer, 0 is returned and timer is not updated.
 */
-struct timeval*
-tmr_timeout(struct iperf_time* nowP) /* __attribute__((hot)) */;
+int
+tmr_timeout(struct iperf_time* nowP, struct timeval* timeout) /* __attribute__((hot)) */;
 
 /* Run the list of timers. Your main program needs to call this every so often,
 ** or as indicated by tmr_timeout().

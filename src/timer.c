@@ -145,26 +145,25 @@ tmr_create(struct iperf_time* nowP,
   return t;
 }
 
-struct timeval*
-tmr_timeout(struct iperf_time* nowP)
+int
+tmr_timeout(struct iperf_time* nowP, struct timeval* timeout)
 {
   struct iperf_time now, diff;
   int64_t usecs;
   int past;
-  static struct timeval timeout;
 
   getnow(nowP, &now);
   /* Since the list is sorted, we only need to look at the first timer. */
   if (timers == NULL)
-    return NULL;
+    return 0;
   past = iperf_time_diff(&timers->time, &now, &diff);
   if (past)
     usecs = 0;
   else
     usecs = iperf_time_in_usecs(&diff);
-  timeout.tv_sec = usecs / 1000000LL;
-  timeout.tv_usec = usecs % 1000000LL;
-  return &timeout;
+  timeout->tv_sec = usecs / 1000000LL;
+  timeout->tv_usec = usecs % 1000000LL;
+  return 1;
 }
 
 void

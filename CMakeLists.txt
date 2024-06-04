@@ -11,7 +11,7 @@ set(CMAKE_C_STANDARD 11)
 
 option(lto "Perform LTO" ON)
 option(pic "Generate PIC objects" ON)
-option(strip "Strip objects" ON)
+option(perf "Structure the code for profiling with perf" ON)
 
 if(lto)
   set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
@@ -25,11 +25,12 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
-set(CMAKE_C_FLAGS "-Wall -Wextra -g")
-set(CMAKE_C_FLAGS_RELEASE "-O3")
+add_compile_options(-Wall -Wextra -g)
 
-if(strip)
-  set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -s")
+if (perf)
+  add_compile_options( -Og -fno-eliminate-unused-debug-symbols -gdwarf-3 -fno-omit-frame-pointer)
+else()
+  add_compile_options(-O3)
 endif()
 
 include(CTest)
@@ -37,6 +38,7 @@ include(cmake/configure.cmake)
 include(cmake/atomic.cmake)
 include(cmake/sctp.cmake)
 include(cmake/openssl.cmake)
+include(cmake/sanitizers.cmake)
 include(cmake/cjson.cmake)
 
 configure_file(config/iperf_config.h.in config/iperf_config.h @ONLY)
@@ -47,8 +49,6 @@ if(BUILD_TESTING)
   enable_testing()
   add_subdirectory(test)
 endif()
-
-set(CMAKE_C_STANDARD_INCLUDE_DIRECTORIES ${CMAKE_C_IMPLICIT_INCLUDE_DIRECTORIES})
 
 # install(TARGETS ${PROJECT_NAME}
 #         ARCHIVE DESTINATION lib

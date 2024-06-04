@@ -35,7 +35,6 @@
 #include <netinet/in.h>   // for sockaddr_in, sockaddr_in6, htons, IPV6_V6ONLY
 #include <stdio.h>        // for NULL, size_t, perror, snprintf, ssize_t
 #include <string.h>       // for memset
-#include <sys/select.h>   // for select, FD_SET, FD_ZERO, fd_set, timeval
 #include <sys/socket.h>   // for setsockopt, bind, socket, AF_INET6, SOL_SO...
 #include <unistd.h>       // for close, read, write
 
@@ -394,8 +393,9 @@ Nread(int fd, char* buf, size_t count)
   register size_t nleft = count;
   struct iperf_time ftimeout = { 0, 0 };
 
-  fd_set rfdset;
-  struct timeval timeout = { nread_read_timeout, 0 };
+  struct pollfd pfd;
+  pfd.fd = fd;
+  pfd.events = POLLIN;
 
   /*
    * fd might not be ready for reading on entry. Check for this
@@ -405,18 +405,19 @@ Nread(int fd, char* buf, size_t count)
    * currently considering whether it might make sense to support a
    * codepath that bypassese this check, for situations where we
    * already know that fd has data on it (for example if we'd gotten
-   * to here as the result of a select() call.
+   * to here as the result of a poll() call.
    */
   {
-    FD_ZERO(&rfdset);
-    FD_SET(fd, &rfdset);
-    r = select(fd + 1, &rfdset, NULL, NULL, &timeout);
+    r = poll(&pfd, 1, nread_read_timeout * 1000);
     if (r < 0) {
       return NET_HARDERROR;
     }
     if (r == 0) {
+      printf("Nread timeout %d\n", __LINE__);
       return 0;
     }
+    if (pfd.revents != POLLIN)
+      printf("Nread poll error (0x%x): %d\n", pfd.revents, __LINE__);
   }
 
   while (nleft > 0) {
@@ -455,15 +456,16 @@ Nread(int fd, char* buf, size_t count)
         break;
       }
 
-      FD_ZERO(&rfdset);
-      FD_SET(fd, &rfdset);
-      r = select(fd + 1, &rfdset, NULL, NULL, &timeout);
+      r = poll(&pfd, 1, nread_read_timeout * 1000);
       if (r < 0) {
         return NET_HARDERROR;
       }
       if (r == 0) {
+        printf("Nread timeout %d\n", __LINE__);
         break;
       }
+      if (pfd.revents != POLLIN)
+        printf("Nread poll error (0x%x): %d\n", pfd.revents, __LINE__);
     }
   }
   return count - nleft;

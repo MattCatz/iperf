@@ -125,12 +125,6 @@ retry:
     }
   }
 
-  FD_ZERO(&test->read_set);
-  FD_ZERO(&test->write_set);
-  FD_SET(test->listener, &test->read_set);
-  if (test->listener > test->max_fd)
-    test->max_fd = test->listener;
-
   return 0;
 }
 
@@ -182,9 +176,6 @@ iperf_accept(struct iperf_test* test)
       i_errno = IERECVCOOKIE;
       goto error_handling;
     }
-    FD_SET(test->ctrl_sck, &test->read_set);
-    if (test->ctrl_sck > test->max_fd)
-      test->max_fd = test->ctrl_sck;
 
     if (iperf_set_send_state(test, PARAM_EXCHANGE) != 0)
       goto error_handling;
@@ -250,8 +241,6 @@ iperf_handle_message_server(struct iperf_test* test)
       test->stats_callback(test);
       SLIST_FOREACH(sp, &test->streams, streams)
       {
-        FD_CLR(sp->socket, &test->read_set);
-        FD_CLR(sp->socket, &test->write_set);
         close(sp->socket);
       }
       test->reporter_callback(test);
@@ -281,8 +270,6 @@ iperf_handle_message_server(struct iperf_test* test)
       iperf_err(test, "the client has terminated");
       SLIST_FOREACH(sp, &test->streams, streams)
       {
-        FD_CLR(sp->socket, &test->read_set);
-        FD_CLR(sp->socket, &test->write_set);
         close(sp->socket);
       }
       test->state = IPERF_DONE;
@@ -479,8 +466,6 @@ cleanup_server(struct iperf_test* test, int rc)
   SLIST_FOREACH(sp, &test->streams, streams)
   {
     if (sp->socket > -1) {
-      FD_CLR(sp->socket, &test->read_set);
-      FD_CLR(sp->socket, &test->write_set);
       close(sp->socket);
       sp->socket = -1;
     }
@@ -526,6 +511,12 @@ cleanup_server(struct iperf_test* test, int rc)
   return rc;
 }
 
+struct poll_list_t {
+  struct pollfd listen;
+  struct pollfd ctrl;
+  struct pollfd prot;
+};
+
 int
 iperf_run_server(struct iperf_test* test)
 {
@@ -535,13 +526,11 @@ iperf_run_server(struct iperf_test* test)
 #if defined(HAVE_TCP_CONGESTION)
   int saved_errno;
 #endif /* HAVE_TCP_CONGESTION */
-  fd_set read_set, write_set;
   struct iperf_stream* sp;
   struct iperf_time now;
   struct iperf_time last_receive_time;
   struct iperf_time diff_time;
-  struct timeval* timeout;
-  struct timeval used_timeout;
+  struct timeval used_timeout = {0};
   iperf_size_t last_receive_blocks;
   int flag;
   int64_t t_usecs;
@@ -591,6 +580,11 @@ iperf_run_server(struct iperf_test* test)
   rcv_timeout_us = (test->settings->rcv_timeout.secs * SEC_TO_US) +
                    test->settings->rcv_timeout.usecs;
 
+  struct poll_list_t poll_list = {0};
+  poll_list.ctrl.events = POLLIN;
+  poll_list.listen.events = POLLIN;
+  poll_list.prot.events = POLLIN;
+
   while (test->state != IPERF_DONE) {
 
     // Check if average transfer rate was exceeded (condition set in the
@@ -601,27 +595,37 @@ iperf_run_server(struct iperf_test* test)
       return -1;
     }
 
-    memcpy(&read_set, &test->read_set, sizeof(fd_set));
-    memcpy(&write_set, &test->write_set, sizeof(fd_set));
+    int ready = 0;
+    if (test->listener > -1) {
+      poll_list.listen.fd = test->listener;
+      ready = 1;
+    }
+
+    if (test->ctrl_sck > -1) {
+      poll_list.ctrl.fd = test->ctrl_sck;
+      ready = 2;
+    }
+
+    if (test->prot_listener > -1) {
+      poll_list.prot.fd = test->prot_listener;
+      ready = 3;
+    }
 
     iperf_time_now(&now);
-    timeout = tmr_timeout(&now);
+    const int pending = tmr_timeout(&now, &used_timeout);
 
     // Ensure select() will timeout to allow handling error cases that
     // require server restart
     if (test->state == IPERF_START) { // In idle mode server may need to restart
-      if (timeout == NULL && test->settings->idle_timeout > 0) {
+      if (pending == 0 && test->settings->idle_timeout > 0) {
         used_timeout.tv_sec = test->settings->idle_timeout;
         used_timeout.tv_usec = 0;
-        timeout = &used_timeout;
       }
     } else if (test->mode != SENDER) { // In non-reverse active mode server
                                        // ensures data is received
       timeout_us = -1;
-      if (timeout != NULL) {
-        used_timeout.tv_sec = timeout->tv_sec;
-        used_timeout.tv_usec = timeout->tv_usec;
-        timeout_us = (timeout->tv_sec * SEC_TO_US) + timeout->tv_usec;
+      if (pending > 0) {
+        timeout_us = (used_timeout.tv_sec * SEC_TO_US) + used_timeout.tv_usec;
       }
       /* Cap the maximum select timeout at 1 second */
       if (timeout_us > SEC_TO_US) {
@@ -631,10 +635,10 @@ iperf_run_server(struct iperf_test* test)
         used_timeout.tv_sec = test->settings->rcv_timeout.secs;
         used_timeout.tv_usec = test->settings->rcv_timeout.usecs;
       }
-      timeout = &used_timeout;
     }
 
-    result = select(test->max_fd + 1, &read_set, &write_set, NULL, timeout);
+    struct timespec timeout_ts = { .tv_sec = used_timeout.tv_sec, .tv_nsec=used_timeout.tv_usec * 1000};
+    result = ppoll((struct pollfd *)&poll_list, ready, pending ? &timeout_ts : NULL, NULL);
     if (result < 0 && errno != EINTR) {
       cleanup_server(test, -1);
       i_errno = IESELECT;
@@ -701,12 +705,11 @@ iperf_run_server(struct iperf_test* test)
     }
 
     if (result > 0) {
-      if (FD_ISSET(test->listener, &read_set)) {
+      if (poll_list.listen.revents & POLLIN) {
         if (test->state != CREATE_STREAMS) {
           if (iperf_accept(test) < 0) {
             return cleanup_server(test, -1);
           }
-          FD_CLR(test->listener, &read_set);
 
           // Set streams number
           if (test->mode == BIDIRECTIONAL) {
@@ -720,17 +723,21 @@ iperf_run_server(struct iperf_test* test)
             streams_to_rec = 0;
           }
         }
-      }
-      if (FD_ISSET(test->ctrl_sck, &read_set)) {
+      } else if (poll_list.listen.revents & ~POLLIN)
+        printf("LISTEN poll error (0x%x): %d\n",
+               poll_list.listen.revents,
+               __LINE__);
+      if (poll_list.ctrl.revents & POLLIN) {
         if (iperf_handle_message_server(test) < 0) {
           return cleanup_server(test, -1);
         }
-        FD_CLR(test->ctrl_sck, &read_set);
-      }
+      } else if (poll_list.ctrl.revents & ~POLLIN)
+        printf("CTRL poll error (0x%x): %d\n",
+               poll_list.ctrl.revents,
+               __LINE__);
 
       if (test->state == CREATE_STREAMS) {
-        if (FD_ISSET(test->prot_listener, &read_set)) {
-
+        if (poll_list.prot.revents & POLLIN) {
           if ((s = test->protocol->accept(test)) < 0) {
             return cleanup_server(test, -1);
           }
@@ -839,28 +846,29 @@ iperf_run_server(struct iperf_test* test)
                 return cleanup_server(test, -1);
               }
 
-              if (s > test->max_fd)
-                test->max_fd = s;
-
               if (test->on_new_stream)
                 test->on_new_stream(sp);
 
               flag = -1;
             }
           }
-          FD_CLR(test->prot_listener, &read_set);
-        }
+        } else if (poll_list.prot.revents & POLLIN)
+          printf("PROT poll error (0x%x): %d\n",
+                 poll_list.prot.revents,
+                 __LINE__);
 
         if (rec_streams_accepted == streams_to_rec &&
             send_streams_accepted == streams_to_send) {
           if (test->protocol->id != Ptcp) {
-            FD_CLR(test->prot_listener, &test->read_set);
+            poll_list.prot.fd = 0;
+            poll_list.prot.events = 0;
             close(test->prot_listener);
             test->prot_listener = -1;
           } else {
             if (test->no_delay || test->settings->mss ||
                 test->settings->socket_bufsize) {
-              FD_CLR(test->listener, &test->read_set);
+              poll_list.listen.fd = 0;
+              poll_list.listen.events = 0;
               close(test->listener);
               test->listener = -1;
               if ((s = netannounce(test->settings->domain,
@@ -873,9 +881,6 @@ iperf_run_server(struct iperf_test* test)
                 return -1;
               }
               test->listener = s;
-              FD_SET(test->listener, &test->read_set);
-              if (test->listener > test->max_fd)
-                test->max_fd = test->listener;
             }
           }
           test->prot_listener = -1;
@@ -950,8 +955,7 @@ iperf_run_server(struct iperf_test* test)
       }
     }
 
-    if (result == 0 ||
-        (timeout != NULL && timeout->tv_sec == 0 && timeout->tv_usec == 0)) {
+    if (result == 0 || (pending <= 0 && used_timeout.tv_sec == 0 && used_timeout.tv_usec == 0)) {
       /* Run the timers. */
       iperf_time_now(&now);
       tmr_run(&now);

@@ -2336,8 +2336,6 @@ iperf_exchange_parameters(struct iperf_test* test)
       return -1;
     }
 
-    FD_SET(s, &test->read_set);
-    test->max_fd = (s > test->max_fd) ? s : test->max_fd;
     test->prot_listener = s;
 
     // Send the control message to create streams and start the test
@@ -3500,9 +3498,6 @@ iperf_reset_test(struct iperf_test* test)
   test->reverse = 0;
   test->bidirectional = 0;
   test->no_delay = 0;
-
-  FD_ZERO(&test->read_set);
-  FD_ZERO(&test->write_set);
 
   test->num_streams = 1;
   test->settings->socket_bufsize = 0;

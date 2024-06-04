@@ -41,7 +41,6 @@
 #include <stdint.h>       // for int32_t, int64_t
 #include <stdio.h>        // for NULL, printf, snprintf
 #include <string.h>       // for memcpy, strdup, strlen
-#include <sys/select.h>   // for timeval, fd_set, select, FD_ZERO, FD_CLR
 #include <sys/socket.h>   // for getsockopt, setsockopt, socklen_t
 #include <unistd.h>       // for close, read
 
@@ -400,8 +399,6 @@ iperf_connect(struct iperf_test* test)
     iperf_err(NULL, "No test\n");
     return -1;
   }
-  FD_ZERO(&test->read_set);
-  FD_ZERO(&test->write_set);
 
   make_cookie(test->cookie);
 
@@ -445,9 +442,8 @@ iperf_connect(struct iperf_test* test)
     return -1;
   }
 
-  FD_SET(test->ctrl_sck, &test->read_set);
-  if (test->ctrl_sck > test->max_fd)
-    test->max_fd = test->ctrl_sck;
+  test->poll_ctrl.fd = test->ctrl_sck;
+  test->poll_ctrl.events = POLLIN;
 
   len = sizeof(opt);
   if (getsockopt(test->ctrl_sck, IPPROTO_TCP, TCP_MAXSEG, &opt, &len) < 0) {
@@ -551,16 +547,14 @@ iperf_run_client(struct iperf_test* test)
 {
   int startup;
   int result = 0;
-  fd_set read_set, write_set;
   struct iperf_time now;
-  struct timeval* timeout = NULL;
+  struct timeval timeout = {0};
   struct iperf_stream* sp;
   struct iperf_time last_receive_time;
   struct iperf_time diff_time;
-  struct timeval used_timeout;
   iperf_size_t last_receive_blocks;
   int64_t t_usecs;
-  int64_t timeout_us;
+  int64_t timeout_us = -1;
   int64_t rcv_timeout_us;
   int i_errno_save;
 
@@ -611,44 +605,28 @@ iperf_run_client(struct iperf_test* test)
 
   startup = 1;
   while (test->state != IPERF_DONE) {
-    memcpy(&read_set, &test->read_set, sizeof(fd_set));
-    memcpy(&write_set, &test->write_set, sizeof(fd_set));
     iperf_time_now(&now);
-    timeout = tmr_timeout(&now);
+    const int pending = tmr_timeout(&now, &timeout);
 
     // In reverse active mode client ensures data is received
     if (test->state == TEST_RUNNING && rcv_timeout_us > 0) {
       timeout_us = -1;
-      if (timeout != NULL) {
-        used_timeout.tv_sec = timeout->tv_sec;
-        used_timeout.tv_usec = timeout->tv_usec;
-        timeout_us = (timeout->tv_sec * SEC_TO_US) + timeout->tv_usec;
+      if (pending >= 1) {
+        timeout_us = (timeout.tv_sec * SEC_TO_US) + timeout.tv_usec;
       }
       /* Cap the maximum select timeout at 1 second */
       if (timeout_us > SEC_TO_US) {
         timeout_us = SEC_TO_US;
       }
       if (timeout_us < 0 || timeout_us > rcv_timeout_us) {
-        used_timeout.tv_sec = test->settings->rcv_timeout.secs;
-        used_timeout.tv_usec = test->settings->rcv_timeout.usecs;
+        timeout_us = rcv_timeout_us;
       }
-      timeout = &used_timeout;
     }
 
-#if (defined(__vxworks)) || (defined(__VXWORKS__))
-    if (timeout != NULL && timeout->tv_sec == 0 && timeout->tv_usec == 0) {
-      taskDelay(1);
-    }
-
-    result = select(test->max_fd + 1,
-                    &read_set,
-                    (test->state == TEST_RUNNING && !test->reverse) ? &write_set
-                                                                    : NULL,
-                    NULL,
-                    timeout);
-#else
-    result = select(test->max_fd + 1, &read_set, &write_set, NULL, timeout);
-#endif // __vxworks or __VXWORKS__
+    struct timespec timeout_ts;
+    timeout_ts.tv_sec = timeout.tv_sec;
+    timeout_ts.tv_nsec = timeout.tv_usec * 1000;
+    result = ppoll(&(test->poll_ctrl), 1, pending ? &timeout_ts : NULL, NULL);
     if (result < 0 && errno != EINTR) {
       i_errno = IESELECT;
       goto cleanup_and_fail;
@@ -670,6 +648,10 @@ iperf_run_client(struct iperf_test* test)
           }
         }
       }
+    } else if (result > 0) {
+      if (test->poll_ctrl.revents != POLLIN)
+        printf(
+          "CTRL poll error (0x%x): %d\n", test->poll_ctrl.revents, __LINE__);
     }
 
     /* See if the test is making progress */
@@ -679,11 +661,8 @@ iperf_run_client(struct iperf_test* test)
     }
 
     if (result > 0) {
-      if (FD_ISSET(test->ctrl_sck, &read_set)) {
-        if (iperf_handle_message_client(test) < 0) {
-          goto cleanup_and_fail;
-        }
-        FD_CLR(test->ctrl_sck, &read_set);
+      if (iperf_handle_message_client(test) < 0) {
+        goto cleanup_and_fail;
       }
     }
 

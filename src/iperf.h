@@ -31,7 +31,7 @@
 
 #include <inttypes.h>
 #include <stdint.h>
-#include <sys/select.h>
+#include <sys/poll.h>
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <sys/types.h>
@@ -77,11 +77,7 @@ typedef uint64_t atomic_uint_fast64_t;
 
 typedef atomic_uint_fast64_t atomic_iperf_size_t;
 
-#if (defined(__vxworks)) || (defined(__VXWORKS__))
-typedef unsigned int uint
-#endif // __vxworks or __VXWORKS__
-
-  struct iperf_interval_results
+struct iperf_interval_results
 {
   atomic_iperf_size_t
     bytes_transferred; /* bytes transferred in this interval */
@@ -354,10 +350,7 @@ struct iperf_test
   char* timestamp_format;
 
   char* json_output_string; /* rendered JSON output if json_output is set */
-  /* Select related parameters */
-  int max_fd;
-  fd_set read_set;  /* set of read sockets */
-  fd_set write_set; /* set of write sockets */
+  struct pollfd poll_ctrl;
 
   /* Interval related members */
   int omitting;
