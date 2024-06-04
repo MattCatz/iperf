@@ -29,32 +29,28 @@
  * Iperf utility functions
  *
  */
-#include "iperf_config.h"
-
-#include <errno.h>
-#include <fcntl.h>
-#include <signal.h>
-#include <stdarg.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/resource.h>
-#include <sys/select.h>
-#include <sys/time.h>
-#include <sys/types.h>
-#include <sys/utsname.h>
-#include <time.h>
-#include <unistd.h>
+#include "iperf_config.h" // for HAVE_SCHED_SETAFFINITY, HAVE_C...
 
 #if defined(HAVE_CPUSET_SETAFFINITY)
 #include <sys/cpuset.h>
 #include <sys/param.h>
 #endif /* HAVE_CPUSET_SETAFFINITY */
-#include <sched.h>
 
-#include "cJSON.h"
-#include "iperf.h"
-#include "iperf_api.h"
+#include "cJSON.h"        // for cJSON_CreateNumber, cJSON, cJS...
+#include "iperf.h"        // for COOKIE_SIZE
+#include "iperf_api.h"    // for iperf_errexit, IEAFFINITY, i_e...
+#include "iperf_time.h"   // for iperf_time_now, iperf_time
+#include <errno.h>        // for errno, EBADF
+#include <sched.h>        // for sched_setaffinity, cpu_set_t
+#include <stdarg.h>       // for va_arg, va_end, va_list, va_start
+#include <stdint.h>       // for int64_t
+#include <stdio.h>        // for NULL, fprintf, snprintf, size_t
+#include <string.h>       // for strlen, strncat, strerror, memset
+#include <sys/resource.h> // for timeval, getrusage, RUSAGE_SELF, rusage
+#include <sys/select.h>   // for select, fd_set, FD_ISSET, FD_SET
+#include <sys/utsname.h>  // for utsname, uname
+#include <time.h>         // for clock, clock_t, CLOCKS_PER_SEC
+struct timeval;
 
 /*
  * Read entropy from /dev/urandom

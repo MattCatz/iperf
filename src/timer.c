@@ -27,11 +27,11 @@
  * Based on timers.c by Jef Poskanzer. Used with permission.
  */
 
-#include <stdlib.h>
-#include <sys/types.h>
-
-#include "iperf_time.h"
 #include "timer.h"
+#include "iperf_time.h" // for iperf_time_add_usecs, iperf_time_compare
+#include <stdlib.h>     // for free, malloc
+#include <sys/time.h>   // for timeval
+#include <time.h>       // for NULL
 
 static Timer* timers = NULL;
 static Timer* free_timers = NULL;

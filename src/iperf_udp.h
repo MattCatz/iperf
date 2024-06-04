@@ -27,6 +27,9 @@
 #ifndef __IPERF_UDP_H
 #define __IPERF_UDP_H
 
+struct iperf_stream;
+struct iperf_test;
+
 /**
  * iperf_udp_recv -- receives the client data for UDP
  *

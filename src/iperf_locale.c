@@ -77,11 +77,8 @@
  * -------------------------------------------------------------------
  * Strings and other stuff that is locale specific.
  * ------------------------------------------------------------------- */
-#include "iperf_config.h"
-
-#include "version.h"
-
-#include <inttypes.h>
+#include "iperf_config.h" // for HAVE_SSL, PACKAGE_BUGREPORT, PACKAGE_URL
+#include <inttypes.h>     // for PRId64
 
 #ifdef __cplusplus
 extern "C"

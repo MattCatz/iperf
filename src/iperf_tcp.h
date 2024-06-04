@@ -27,6 +27,9 @@
 #ifndef IPERF_TCP_H
 #define IPERF_TCP_H
 
+struct iperf_stream;
+struct iperf_test;
+
 /**
  * iperf_tcp_accept -- accepts a new TCP connection
  * on tcp_listener_socket for TCP data and param/result

@@ -24,28 +24,22 @@
  * This code is distributed under a BSD style license, see the LICENSE
  * file for complete information.
  */
-#include <arpa/inet.h>
-#include <assert.h>
-#include <errno.h>
-#include <inttypes.h>
-#include <netinet/in.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/select.h>
-#include <sys/socket.h>
-#include <sys/time.h>
-#include <sys/types.h>
-#include <unistd.h>
-
-#include "cJSON.h"
-#include "iperf.h"
-#include "iperf_api.h"
 #include "iperf_udp.h"
-#include "iperf_util.h"
-#include "net.h"
-#include "timer.h"
+#include "cJSON.h"        // for cJSON_AddNumberToObject, cJSON_GetObjectItem
+#include "iperf.h"        // for iperf_test, iperf_stream, iperf_settings
+#include "iperf_api.h"    // for warning, i_errno, IESETBUF, WARN_STR_LEN
+#include "iperf_config.h" // for HAVE_SO_MAX_PACING_RATE
+#include "iperf_time.h"   // for iperf_time, iperf_time_now, iperf_time_diff
+#include "net.h"          // for netannounce, Nread, Nwrite, netdial, NET_S...
+#include <endian.h>       // for be64toh, htobe64
+#include <errno.h>        // for errno
+#include <inttypes.h>     // for uint32_t, PRIu64, uint64_t
+#include <netinet/in.h>   // for htonl, ntohl
+#include <stdio.h>        // for printf, snprintf, fprintf, NULL, stderr
+#include <string.h>       // for memcpy, strerror
+#include <sys/select.h>   // for timeval, FD_SET
+#include <sys/socket.h>   // for setsockopt, SOL_SOCKET, getsockopt, SO_RCV...
+#include <unistd.h>       // for write
 
 /* iperf_udp_recv
  *

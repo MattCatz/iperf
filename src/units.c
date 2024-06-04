@@ -51,15 +51,11 @@
  * input and output numbers, converting with kilo, mega, giga, tera
  * ------------------------------------------------------------------- */
 
-#include <assert.h>
-#include <ctype.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <sys/socket.h>
-#include <sys/time.h>
-#include <sys/types.h>
-
-#include "iperf.h"
+#include "iperf.h"     // for iperf_size_t
+#include <assert.h>    // for assert
+#include <ctype.h>     // for isupper, toupper
+#include <stdio.h>     // for sscanf, NULL, snprintf
+#include <sys/types.h> // for u_char
 
 #ifdef __cplusplus
 extern "C"

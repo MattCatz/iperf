@@ -29,7 +29,7 @@ set(_libiperf_public
 
 add_library(_libiperf_private OBJECT ${_libiperf_private})
 set_target_properties(_libiperf_private PROPERTIES C_VISIBILITY_PRESET hidden)
-target_link_libraries(_libiperf_private PUBLIC ${PTHREADS} cjson)
+target_link_libraries(_libiperf_private PUBLIC ${PTHREADS} ${MATH} cjson)
 
 if(OPENSSL)
         target_link_libraries(_libiperf_private PUBLIC ${OPENSSL} ${CRYPTO})
@@ -42,7 +42,7 @@ endif()
 add_library(_libiperf_public OBJECT ${_libiperf_public})
 set_target_properties(_libiperf_public PROPERTIES C_VISIBILITY_PRESET default)
 set_target_properties(_libiperf_public PROPERTIES PUBLIC_HEADER iperf_api.h)
-target_link_libraries(_libiperf_public PUBLIC ${PTHREADS} cjson)
+target_link_libraries(_libiperf_public PUBLIC ${PTHREADS} ${MATH} cjson)
 target_include_directories(_libiperf_public PUBLIC ${CMAKE_CURRENT_LIST_DIR})
 
 if(static)

@@ -25,31 +25,48 @@
  * for complete information.
  */
 
-#include "iperf_config.h"
-
-#include <arpa/inet.h>
-#include <assert.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <getopt.h>
-#include <math.h>
-#include <netdb.h>
-#include <netinet/in.h>
-#include <setjmp.h>
-#include <signal.h>
-#include <stdarg.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/mman.h>
-#include <sys/resource.h>
-#include <sys/socket.h>
-#include <sys/stat.h>
-#include <sys/time.h>
-#include <sys/types.h>
-#include <time.h>
-#include <unistd.h>
+#include "iperf_api.h"
+#include "cJSON.h"            // for cJSON_GetObjectItem, cJSON_AddNumberTo...
+#include "iperf.h"            // for iperf_test, iperf_stream, iperf_settings
+#include "iperf_auth.h"       // for check_authentication, decode_auth_setting
+#include "iperf_config.h"     // for HAVE_SSL, HAVE_DONT_FRAGMENT, HAVE_SCTP_H
+#include "iperf_locale.h"     // for report_sender, report_receiver, report...
+#include "iperf_sctp.h"       // for iperf_sctp_accept, iperf_sctp_connect
+#include "iperf_tcp.h"        // for iperf_tcp_accept, iperf_tcp_connect
+#include "iperf_time.h"       // for iperf_time_diff, iperf_time_in_secs
+#include "iperf_udp.h"        // for iperf_udp_accept, iperf_udp_connect
+#include "iperf_util.h"       // for iperf_json_printf, cpu_util, fill_with...
+#include "net.h"              // for Nwrite, getsockdomain, has_sendfile
+#include "queue.h"            // for SLIST_FOREACH, SLIST_FIRST, TAILQ_EMPTY
+#include "timer.h"            // for tmr_cancel, TimerClientData, tmr_create
+#include "units.h"            // for unit_snprintf, UNIT_LEN, unit_atoi
+#include "version.h"          // for IPERF_VERSION
+#include <arpa/inet.h>        // for inet_ntop, inet_pton
+#include <bits/getopt_core.h> // for optarg, optind
+#include <errno.h>            // for errno
+#include <fcntl.h>            // for open, O_CREAT, O_RDONLY, O_TRUNC, O_WR...
+#include <getopt.h>           // for required_argument, no_argument, getopt...
+#include <inttypes.h>         // for PRIu64
+#include <limits.h>           // for INT_MAX
+#include <math.h>             // for round
+#include <netdb.h>            // for freeaddrinfo
+#include <netinet/in.h>       // for ntohs, sockaddr_in, sockaddr_in6, htonl
+#include <openssl/err.h>      // for ERR_error_string, ERR_get_error
+#include <openssl/evp.h>      // for EVP_PKEY_free
+#include <pthread.h>          // for pthread_mutex_lock, pthread_mutex_unlock
+#include <signal.h>           // for signal, kill, SIGHUP, SIGINT, SIGTERM
+#include <stdarg.h>           // for va_end, va_start
+#include <stdint.h>           // for int64_t, uint64_t, uint32_t, int32_t
+#include <stdio.h>            // for NULL, printf, perror, fprintf, snprintf
+#include <stdlib.h>           // for free, atoi, malloc, getenv, exit, strtol
+#include <string.h>           // for strdup, memset, strlen, memcpy, strchr
+#include <sys/mman.h>         // for munmap, mmap, MAP_FAILED, MAP_PRIVATE
+#include <sys/select.h>       // for FD_ZERO, FD_SET
+#include <sys/socket.h>       // for setsockopt, AF_INET, AF_INET6, getpeer...
+#include <sys/stat.h>         // for stat, fstat, S_IRUSR, S_IWUSR
+#include <sys/time.h>         // for time_t
+#include <time.h>             // for strftime, time, gmtime, localtime
+#include <unistd.h>           // for close, read, unlink, write, ftruncate
 
 #if defined(__CYGWIN__) || defined(_WIN32) || defined(_WIN64) ||               \
   defined(__WINDOWS__)

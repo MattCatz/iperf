@@ -27,35 +27,28 @@
 /* iperf_server_api.c: Functions to be used by an iperf server
  */
 
-#include <arpa/inet.h>
-#include <assert.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <getopt.h>
-#include <netdb.h>
-#include <netinet/in.h>
-#include <sched.h>
-#include <setjmp.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/resource.h>
-#include <sys/socket.h>
-#include <sys/time.h>
-#include <sys/types.h>
-#include <unistd.h>
-
-#include "iperf.h"
-#include "iperf_api.h"
-#include "iperf_locale.h"
-#include "iperf_tcp.h"
-#include "iperf_time.h"
-#include "iperf_udp.h"
-#include "iperf_util.h"
-#include "net.h"
-#include "timer.h"
-#include "units.h"
+#include "cJSON.h"        // for cJSON_AddItemToObject, cJSON_CreateString
+#include "iperf.h"        // for iperf_test, iperf_stream, iperf_settings
+#include "iperf_api.h"    // for iperf_printf, i_errno, iperf_err, iperf_se...
+#include "iperf_config.h" // for HAVE_TCP_CONGESTION
+#include "iperf_locale.h" // for version, report_omit_done
+#include "iperf_time.h"   // for iperf_time_now, iperf_time, iperf_time_diff
+#include "iperf_util.h"   // for cpu_util, get_system_info, iperf_setaffinity
+#include "net.h"          // for Nread, netannounce, Nwrite
+#include "queue.h"        // for SLIST_FOREACH, SLIST_EMPTY, SLIST_FIRST
+#include "timer.h"        // for TimerClientData, tmr_cancel, tmr_create
+#include <errno.h>        // for errno, ESRCH, EAFNOSUPPORT, EINTR, ENOENT
+#include <inttypes.h>     // for PRIu64
+#include <netinet/in.h>   // for IPPROTO_TCP
+#include <netinet/tcp.h>  // for TCP_CONGESTION, TCP_NODELAY
+#include <pthread.h>      // for pthread_attr_destroy, pthread_attr_init
+#include <stdint.h>       // for int64_t
+#include <stdio.h>        // for NULL, printf
+#include <stdlib.h>       // for free, exit
+#include <string.h>       // for memcpy, strdup, strlen
+#include <sys/select.h>   // for timeval, FD_CLR, fd_set, FD_ISSET, FD_SET
+#include <sys/socket.h>   // for setsockopt, accept, getsockopt, sockaddr_s...
+#include <unistd.h>       // for close
 
 #if defined(HAVE_TCP_CONGESTION)
 #if !defined(TCP_CA_NAME_MAX)

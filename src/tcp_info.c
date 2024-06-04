@@ -45,18 +45,15 @@
  support Windows.
  */
 
-#include <errno.h>
-#include <netinet/in.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/param.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-
-#include "iperf.h"
-#include "iperf_api.h"
-#include "iperf_locale.h"
+#include "iperf.h"        // for iperf_interval_results, iperf_stream, iper...
+#include "iperf_api.h"    // for iperf_err, build_tcpinfo_message, get_pmtu
+#include "iperf_locale.h" // for report_tcpInfo
+#include <errno.h>        // for errno
+#include <netinet/in.h>   // for IPPROTO_TCP
+#include <netinet/tcp.h>  // for tcp_info, TCP_MD5SIG, TCP_INFO
+#include <stdio.h>        // for printf, sprintf
+#include <string.h>       // for strerror
+#include <sys/socket.h>   // for getsockopt, socklen_t
 
 /*************************************************************/
 int

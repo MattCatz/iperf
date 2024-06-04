@@ -27,6 +27,9 @@
 #ifndef IPERF_SCTP_H
 #define IPERF_SCTP_H
 
+struct iperf_stream;
+struct iperf_test;
+
 /**
  * iperf_sctp_accept -- accepts a new SCTP connection
  * on sctp_listener_socket for SCTP data and param/result

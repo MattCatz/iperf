@@ -24,25 +24,15 @@
  * This code is distributed under a BSD style license, see the LICENSE
  * file for complete information.
  */
-#include "iperf_config.h"
-
-#include <arpa/inet.h>
-#include <errno.h>
-#include <getopt.h>
-#include <netdb.h>
-#include <netinet/in.h>
-#include <signal.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <unistd.h>
 
 #include "iperf_api.h"
-#include "net.h"
-#include "units.h"
+#include <setjmp.h>    // for longjmp, jmp_buf, setjmp
+#include <signal.h>    // for signal, SIGPIPE, SIG_DFL, SIG_IGN
+#include <stdio.h>     // for fprintf, stderr, NULL
+#include <stdlib.h>    // for exit
+#include <sys/types.h> // for u_int64_t
+#include <unistd.h>    // for daemon
+struct iperf_test;
 
 static int
 run(struct iperf_test* test);

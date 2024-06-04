@@ -24,29 +24,27 @@
  * This code is distributed under a BSD style license, see the LICENSE
  * file for complete information.
  */
-#include <arpa/inet.h>
-#include <errno.h>
-#include <limits.h>
-#include <netdb.h>
-#include <netinet/in.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/select.h>
-#include <sys/socket.h>
-#include <sys/time.h>
-#include <sys/types.h>
-#include <unistd.h>
-
-#include "cJSON.h"
-#include "iperf.h"
-#include "iperf_api.h"
 #include "iperf_tcp.h"
-#include "net.h"
+#include "cJSON.h"        // for cJSON_AddNumberToObject, cJSON_GetObjectItem
+#include "iperf.h"        // for iperf_test, iperf_settings, iperf_stream
+#include "iperf_api.h"    // for i_errno, IESETBUF, warning, IESETBUF2, IES...
+#include "iperf_config.h" // for HAVE_FLOWLABEL, HAVE_SO_MAX_PACING_RATE
+#include "net.h"          // for Nwrite, Nread, Nsendfile, create_socket
+#include <errno.h>        // for errno, EINPROGRESS
+#include <inttypes.h>     // for PRIu64
+#include <limits.h>       // for INT_MAX
+#include <netdb.h>        // for freeaddrinfo, addrinfo, getaddrinfo, AI_PA...
+#include <netinet/in.h>   // for IPPROTO_TCP, IPPROTO_IPV6, IPV6_V6ONLY
+#include <netinet/tcp.h>  // for TCP_MAXSEG, TCP_NODELAY
+#include <stdio.h>        // for printf, NULL, snprintf
+#include <string.h>       // for memset, memcpy, strncmp
+#include <sys/select.h>   // for FD_CLR
+#include <sys/socket.h>   // for setsockopt, getsockopt, SOL_SOCKET, SO_RCVBUF
+#include <unistd.h>       // for close
 
 #if defined(HAVE_FLOWLABEL)
-#include "flowlabel.h"
-#endif /* HAVE_FLOWLABEL */
+#include "flowlabel.h" // for IPV6_FLOWINFO_SEND, IPV6_FLOWLABEL_MGR
+#endif                 /* HAVE_FLOWLABEL */
 
 /* iperf_tcp_recv
  *

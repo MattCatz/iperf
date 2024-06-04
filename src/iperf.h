@@ -51,6 +51,7 @@
 #endif /* HAVE_CPUSET_SETAFFINITY */
 
 #include "cJSON.h"
+#include "iperf_api.h"
 #include "iperf_time.h"
 #include "portable_endian.h"
 #include "queue.h"
@@ -74,10 +75,7 @@
 typedef uint64_t atomic_uint_fast64_t;
 #endif // HAVE_STDATOMIC_H
 
-#if !defined(__IPERF_API_H)
-typedef uint_fast64_t iperf_size_t;
 typedef atomic_uint_fast64_t atomic_iperf_size_t;
-#endif // __IPERF_API_H
 
 #if (defined(__vxworks)) || (defined(__VXWORKS__))
 typedef unsigned int uint

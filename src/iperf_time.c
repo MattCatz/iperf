@@ -25,10 +25,8 @@
  * file for complete information.
  */
 
-#include <stddef.h>
-
-#include "iperf_config.h"
 #include "iperf_time.h"
+#include "iperf_config.h" // for HAVE_CLOCK_GETTIME
 
 #ifdef HAVE_CLOCK_GETTIME
 

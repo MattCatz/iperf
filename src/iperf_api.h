@@ -37,27 +37,13 @@ extern "C"
 { /* open extern "C" */
 #endif
 
-/*
- * Atomic types highly desired, but if not, we approximate what we need
- * with normal integers and warn.
- */
-#ifdef HAVE_ATOMIC
-#include <stdatomic.h>
-#else
-#warning "No <stdatomic.h> available"
-typedef u_int64_t atomic_uint_fast64_t;
-#endif // HAVE_STDATOMIC_H
+  typedef uint_fast64_t iperf_size_t;
 
   struct iperf_test;
   struct iperf_stream_result;
   struct iperf_interval_results;
   struct iperf_stream;
   struct iperf_time;
-
-#if !defined(__IPERF_H)
-  typedef uint_fast64_t iperf_size_t;
-  typedef atomic_uint_fast64_t atomic_iperf_size_t;
-#endif // __IPERF_H
 
 /* default settings */
 #define Ptcp SOCK_STREAM

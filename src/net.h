@@ -27,6 +27,9 @@
 #ifndef __NET_H
 #define __NET_H
 
+#include <sys/socket.h> // for size_t, socklen_t
+struct addrinfo;
+
 int
 timeout_connect(int s,
                 const struct sockaddr* name,

@@ -25,31 +25,38 @@
  * for complete information.
  */
 
-#include "iperf_config.h"
-
-#include <assert.h>
-#include <string.h>
-#include <sys/types.h>
-#include <time.h>
-/* FreeBSD needs _WITH_GETLINE to enable the getline() declaration */
-#define _WITH_GETLINE
-#include <inttypes.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <termios.h>
+#include "iperf_config.h" // for HAVE_SSL
+#include <stddef.h>       // for size_t
+#include <stdio.h>        // for NULL, size_t, fileno, printf, fclose
+#include <sys/types.h>    // for ssize_t
+#include <termios.h>      // for tcsetattr, tcgetattr, ECHO, termios, TCSAFLUSH
 
 #if defined(HAVE_SSL)
 
-#include <openssl/bio.h>
-#include <openssl/buffer.h>
-#include <openssl/err.h>
-#include <openssl/pem.h>
-#include <openssl/rsa.h>
-#include <openssl/sha.h>
+/* FreeBSD needs _WITH_GETLINE to enable the getline() declaration */
+#define _WITH_GETLINE
+
+#include <openssl/bio.h>        // for BIO_free, BIO_new, BIO_new_mem_buf
+#include <openssl/buffer.h>     // for buf_mem_st
+#include <openssl/core_names.h> // for OSSL_PKEY_PARAM_MAX_SIZE
+#include <openssl/crypto.h>     // for OPENSSL_free, OPENSSL_malloc
+#include <openssl/err.h>        // for ERR_error_string, ERR_get_error
+#include <openssl/evp.h>        // for BIO_f_base64, EVP_PKEY_CTX_free
+#include <openssl/opensslv.h>   // for OPENSSL_VERSION_MAJOR
+#include <openssl/pem.h>        // for PEM_read_bio_PUBKEY, PEM_read_bio_...
+#include <openssl/rsa.h>        // for EVP_PKEY_CTX_set_rsa_padding, RSA_...
+#include <openssl/sha.h>        // for SHA256, SHA256_DIGEST_LENGTH
+#include <openssl/types.h>      // for EVP_PKEY, BIO, BUF_MEM, EVP_PKEY_CTX
 #if OPENSSL_VERSION_MAJOR >= 3
 #include <openssl/core_names.h>
 #include <openssl/evp.h>
 #endif
+
+#include <assert.h>   // for assert
+#include <inttypes.h> // for int64_t, PRId64
+#include <stdlib.h>   // for free, calloc, malloc
+#include <string.h>   // for strlen, strcmp, strtok, strchr
+#include <time.h>     // for time_t, localtime, mktime, time
 
 const char* auth_text_format = "user: %s\npwd:  %s\nts:   %" PRId64;
 

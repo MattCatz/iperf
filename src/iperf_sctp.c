@@ -24,29 +24,32 @@
  * This code is distributed under a BSD style license, see the LICENSE
  * file for complete information.
  */
-#include "iperf_config.h"
 
-#include <errno.h>
-#include <limits.h>
-#include <netdb.h>
-#include <netinet/in.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/select.h>
-#include <sys/socket.h>
-#include <sys/time.h>
-#include <sys/types.h>
-#include <unistd.h>
+#include "iperf_sctp.h"
+#include <errno.h>      // for errno, ENOPROTOOPT, EINPROGRESS
+#include <limits.h>     // for INT_MAX
+#include <net/if.h>     // for IFNAMSIZ
+#include <netdb.h>      // for freeaddrinfo, addrinfo, getaddrinfo, AI_PA...
+#include <netinet/in.h> // for IPPROTO_SCTP, sockaddr_in, sockaddr_in6
+#include <stdio.h>      // for snprintf, NULL, printf, size_t
+#include <stdlib.h>     // for free, malloc
+#include <string.h>     // for memset, memcpy, strncmp
+#include <sys/socket.h> // for setsockopt, bind, AF_INET6, AF_UNSPEC, SOL...
+#include <unistd.h>     // for close
+
+#include "iperf.h"        // for iperf_test, xbind_entry, iperf_settings
+#include "iperf_api.h"    // for i_errno, IESETSCTPBINDX, IESTREAMCONNECT
+#include "iperf_config.h" // for HAVE_SCTP_H
+#include "net.h"          // for Nwrite, Nread
+#include "queue.h"        // for TAILQ_EMPTY, TAILQ_FOREACH, TAILQ_FIRST
 
 #ifdef HAVE_SCTP_H
-#include <netinet/sctp.h>
-#endif /* HAVE_SCTP_H */
-
-#include "iperf.h"
-#include "iperf_api.h"
-#include "iperf_sctp.h"
-#include "net.h"
+#include <inttypes.h>
+#include <stdint.h>
+// #include <linux/sctp.h>    // for sctp_initmsg, SCTP_BINDX_ADD_ADDR,
+// SCTP_DI...
+#include <netinet/sctp.h> // for sctp_bindx, sctp_initmsg, SCTP_BINDX_ADD_ADDR, SCTP_DI...
+#endif                    /* HAVE_SCTP_H */
 
 /* iperf_sctp_recv
  *
@@ -73,6 +76,7 @@ iperf_sctp_recv(struct iperf_stream* sp)
 
   return r;
 #else
+  (void)sp;
   i_errno = IENOSCTP;
   return -1;
 #endif /* HAVE_SCTP_H */
@@ -97,6 +101,7 @@ iperf_sctp_send(struct iperf_stream* sp)
 
   return r;
 #else
+  (void)sp;
   i_errno = IENOSCTP;
   return -1;
 #endif /* HAVE_SCTP_H */
@@ -140,6 +145,7 @@ iperf_sctp_accept(struct iperf_test* test)
 
   return s;
 #else
+  (void)test;
   i_errno = IENOSCTP;
   return -1;
 #endif /* HAVE_SCTP_H */
@@ -276,6 +282,7 @@ iperf_sctp_listen(struct iperf_test* test)
 
   return s;
 #else
+  (void)test;
   i_errno = IENOSCTP;
   return -1;
 #endif /* HAVE_SCTP_H */
@@ -557,6 +564,7 @@ iperf_sctp_connect(struct iperf_test* test)
   freeaddrinfo(server_res);
   return s;
 #else
+  (void)test;
   i_errno = IENOSCTP;
   return -1;
 #endif /* HAVE_SCTP_H */
@@ -731,6 +739,9 @@ out:
 
   return retval;
 #else
+  (void)test;
+  (void)is_server;
+  (void)s;
   i_errno = IENOSCTP;
   return -1;
 #endif /* HAVE_SCTP_H */

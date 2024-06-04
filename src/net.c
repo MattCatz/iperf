@@ -24,24 +24,24 @@
  * This code is distributed under a BSD style license, see the LICENSE
  * file for complete information.
  */
-#include "iperf_config.h"
-
-#include <arpa/inet.h>
-#include <assert.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <limits.h>
-#include <netdb.h>
-#include <netinet/in.h>
-#include <stdio.h>
-#include <string.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <unistd.h>
+#include "net.h"
+#include "iperf_config.h" // for HAVE_SENDFILE, HAVE_SO_BINDTODEVICE, HAVE_...
+#include "iperf_time.h"   // for iperf_time, iperf_time_add_usecs, iperf_ti...
+#include <errno.h>        // for errno, EAGAIN, EINTR, EWOULDBLOCK, EINPROG...
+#include <fcntl.h>        // for fcntl, F_SETFL, O_NONBLOCK, F_GETFL, off_t
+#include <limits.h>       // for INT_MAX
+#include <net/if.h>       // for IFNAMSIZ
+#include <netdb.h>        // for freeaddrinfo, addrinfo, getaddrinfo, AI_PA...
+#include <netinet/in.h>   // for sockaddr_in, sockaddr_in6, htons, IPV6_V6ONLY
+#include <stdio.h>        // for NULL, size_t, perror, snprintf, ssize_t
+#include <string.h>       // for memset
+#include <sys/select.h>   // for select, FD_SET, FD_ZERO, fd_set, timeval
+#include <sys/socket.h>   // for setsockopt, bind, socket, AF_INET6, SOL_SO...
+#include <unistd.h>       // for close, read, write
 
 #ifdef HAVE_SENDFILE
 #ifdef linux
-#include <sys/sendfile.h>
+#include <sys/sendfile.h> // for sendfile
 #else
 #ifdef __FreeBSD__
 #include <sys/uio.h>
@@ -57,13 +57,8 @@
 #endif /* HAVE_SENDFILE */
 
 #ifdef HAVE_POLL_H
-#include <poll.h>
-#endif /* HAVE_POLL_H */
-
-#include "iperf.h"
-#include "iperf_util.h"
-#include "net.h"
-#include "timer.h"
+#include <poll.h> // for poll, pollfd, POLLOUT
+#endif            /* HAVE_POLL_H */
 
 static int nread_read_timeout = 10;
 static int nread_overall_timeout = 30;

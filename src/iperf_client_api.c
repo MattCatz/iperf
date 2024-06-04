@@ -24,26 +24,26 @@
  * This code is distributed under a BSD style license, see the LICENSE
  * file for complete information.
  */
-#include <arpa/inet.h>
-#include <errno.h>
-#include <netinet/in.h>
-#include <setjmp.h>
-#include <signal.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/select.h>
-#include <sys/types.h>
-#include <sys/uio.h>
-#include <unistd.h>
-
-#include "iperf.h"
-#include "iperf_api.h"
-#include "iperf_locale.h"
-#include "iperf_time.h"
-#include "iperf_util.h"
-#include "net.h"
-#include "timer.h"
+#include "cJSON.h"        // for cJSON_AddItemToObject, cJSON_CreateString
+#include "iperf.h"        // for iperf_test, iperf_stream, iperf_settings
+#include "iperf_api.h"    // for iperf_printf, i_errno, iperf_err, iperf_st...
+#include "iperf_config.h" // for HAVE_TCP_CONGESTION
+#include "iperf_locale.h" // for version, report_done, report_omit_done
+#include "iperf_time.h"   // for iperf_time_now, iperf_time, iperf_time_diff
+#include "iperf_util.h"   // for cpu_util, get_system_info, iperf_setaffinity
+#include "net.h"          // for Nread, Nwrite, netdial
+#include "queue.h"        // for SLIST_FOREACH
+#include "timer.h"        // for TimerClientData, tmr_create, tmr_reset
+#include <errno.h>        // for errno, ESRCH, EINTR
+#include <netinet/in.h>   // for IPPROTO_TCP, ntohl
+#include <netinet/tcp.h>  // for TCP_CONGESTION, TCP_MAXSEG, TCP_NODELAY
+#include <pthread.h>      // for pthread_cancel, pthread_join, pthread_attr...
+#include <stdint.h>       // for int32_t, int64_t
+#include <stdio.h>        // for NULL, printf, snprintf
+#include <string.h>       // for memcpy, strdup, strlen
+#include <sys/select.h>   // for timeval, fd_set, select, FD_ZERO, FD_CLR
+#include <sys/socket.h>   // for getsockopt, setsockopt, socklen_t
+#include <unistd.h>       // for close, read
 
 #if defined(HAVE_TCP_CONGESTION)
 #if !defined(TCP_CA_NAME_MAX)

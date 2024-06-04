@@ -25,11 +25,9 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <inttypes.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <strings.h>
+#include <stdio.h>   // for NULL, snprintf
+#include <stdlib.h>  // for strtol
+#include <strings.h> // for strcasecmp
 
 #ifdef WIN32
 #define strcasecmp(a, b) _stricmp(a, b)
