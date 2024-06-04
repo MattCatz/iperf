@@ -180,7 +180,7 @@ iperf_accept(struct iperf_test* test)
     }
 #endif /* HAVE_TCP_USER_TIMEOUT */
 
-    if (Nread(test->ctrl_sck, test->cookie, COOKIE_SIZE, Ptcp) != COOKIE_SIZE) {
+    if (Nread(test->ctrl_sck, test->cookie, COOKIE_SIZE) != COOKIE_SIZE) {
       /*
        * Note this error covers both the case of a system error
        * or the inability to read the correct amount of data
@@ -198,7 +198,7 @@ iperf_accept(struct iperf_test* test)
     if (iperf_exchange_parameters(test) < 0)
       goto error_handling;
     if (test->server_affinity != -1)
-      if (iperf_setaffinity(test, test->server_affinity) != 0)
+      if (iperf_setaffinity(test->server_affinity) != 0)
         goto error_handling;
     if (test->on_connect)
       test->on_connect(test);
@@ -210,7 +210,7 @@ iperf_accept(struct iperf_test* test)
      * related to the ongoing test, and returning an error will terminate the
      * test.
      */
-    if (Nwrite(s, (char*)&rbuf, sizeof(rbuf), Ptcp) < 0) {
+    if (Nwrite(s, (char*)&rbuf, sizeof(rbuf)) < 0) {
       if (test->debug)
         printf("failed to send ACCESS_DENIED to an unsolicited "
                "connection request during active test\n");
@@ -236,8 +236,7 @@ iperf_handle_message_server(struct iperf_test* test)
 
   // XXX: Need to rethink how this behaves to fit API
   if ((rval = Nread(
-         test->ctrl_sck, (char*)&test->state, sizeof(signed char), Ptcp)) <=
-      0) {
+         test->ctrl_sck, (char*)&test->state, sizeof(signed char))) <= 0) {
     if (rval == 0) {
       iperf_err(test, "the client has unexpectedly closed the connection");
       i_errno = IECTRLCLOSE;
@@ -306,6 +305,7 @@ iperf_handle_message_server(struct iperf_test* test)
 static void
 server_timer_proc(TimerClientData client_data, struct iperf_time* nowP)
 {
+  (void)nowP;
   struct iperf_test* test = client_data.p;
   struct iperf_stream* sp;
 
@@ -327,6 +327,8 @@ server_timer_proc(TimerClientData client_data, struct iperf_time* nowP)
 static void
 server_stats_timer_proc(TimerClientData client_data, struct iperf_time* nowP)
 {
+  (void)nowP;
+
   struct iperf_test* test = client_data.p;
 
   if (test->done)
@@ -338,6 +340,8 @@ server_stats_timer_proc(TimerClientData client_data, struct iperf_time* nowP)
 static void
 server_reporter_timer_proc(TimerClientData client_data, struct iperf_time* nowP)
 {
+  (void)nowP;
+
   struct iperf_test* test = client_data.p;
 
   if (test->done)
@@ -558,7 +562,7 @@ iperf_run_server(struct iperf_test* test)
     }
 
   if (test->affinity != -1)
-    if (iperf_setaffinity(test, test->affinity) != 0) {
+    if (iperf_setaffinity(test->affinity) != 0) {
       return cleanup_server(test, -2);
     }
 
@@ -599,7 +603,7 @@ iperf_run_server(struct iperf_test* test)
     // Check if average transfer rate was exceeded (condition set in the
     // callback routines)
     if (test->bitrate_limit_exceeded) {
-      cleanup_server(test,-1);
+      cleanup_server(test, -1);
       i_errno = IETOTALRATE;
       return -1;
     }
@@ -786,7 +790,7 @@ iperf_run_server(struct iperf_test* test)
                   } else {
                     saved_errno = errno;
                     close(s);
-                    cleanup_server(test,-1);
+                    cleanup_server(test, -1);
                     errno = saved_errno;
                     i_errno = IESETCONGESTION;
                     return -1;
@@ -918,7 +922,7 @@ iperf_run_server(struct iperf_test* test)
           }
           if (test->mode != RECEIVER)
             if (iperf_create_send_timers(test) < 0) {
-            return cleanup_server(test, -1);
+              return cleanup_server(test, -1);
             }
           if (iperf_set_send_state(test, TEST_RUNNING) != 0) {
             return cleanup_server(test, -1);
@@ -970,7 +974,7 @@ iperf_run_server(struct iperf_test* test)
   cleanup_server(test, 0);
 
   if (test->server_affinity != -1)
-    if (iperf_clearaffinity(test) != 0) 
+    if (iperf_clearaffinity(test) != 0)
       test->server_last_run_rc = -1;
 
   return test->server_last_run_rc;

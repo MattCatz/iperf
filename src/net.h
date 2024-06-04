@@ -57,19 +57,13 @@ netannounce(int domain,
             const char* bind_dev,
             int port);
 int
-Nread(int fd, char* buf, size_t count, int prot);
+Nread(int fd, char* buf, size_t count);
 int
-Nwrite(int fd,
-       const char* buf,
-       size_t count,
-       int prot) /* __attribute__((hot)) */;
+Nwrite(int fd, const char* buf, size_t count) /* __attribute__((hot)) */;
 int
 has_sendfile(void);
 int
-Nsendfile(int fromfd,
-          int tofd,
-          const char* buf,
-          size_t count) /* __attribute__((hot)) */;
+Nsendfile(int fromfd, int tofd, size_t count) /* __attribute__((hot)) */;
 int
 setnonblocking(int fd, int nonblocking);
 int

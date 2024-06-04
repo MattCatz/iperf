@@ -1,3 +1,9 @@
+option(static "Build static vesrion of libperf" ON)
+option(shared "Build shared version of libperf" OFF)
+option(binary "Build iperf3 binary" ON)
+
+add_definitions(-D_GNU_SOURCE -D__USE_GNU)
+
 set(_libiperf_private
         dscp.c
         net.c
@@ -20,10 +26,6 @@ set(_libiperf_public
         iperf_error.c
         iperf_server_api.c
         )
-
-option(static "Build static vesrion of libperf" ON)
-option(shared "Build shared version of libperf" OFF)
-option(binary "Build iperf3 binary" ON)
 
 add_library(_libiperf_private OBJECT ${_libiperf_private})
 set_target_properties(_libiperf_private PROPERTIES C_VISIBILITY_PRESET hidden)

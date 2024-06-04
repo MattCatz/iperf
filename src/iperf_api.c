@@ -24,10 +24,6 @@
  * This code is distributed under a BSD style license, see the LICENSE file
  * for complete information.
  */
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
-#endif
-#define __USE_GNU
 
 #include "iperf_config.h"
 
@@ -39,7 +35,6 @@
 #include <math.h>
 #include <netdb.h>
 #include <netinet/in.h>
-#include <sched.h>
 #include <setjmp.h>
 #include <signal.h>
 #include <stdarg.h>
@@ -55,11 +50,6 @@
 #include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
-
-#if defined(HAVE_CPUSET_SETAFFINITY)
-#include <sys/cpuset.h>
-#include <sys/param.h>
-#endif /* HAVE_CPUSET_SETAFFINITY */
 
 #if defined(__CYGWIN__) || defined(_WIN32) || defined(_WIN64) ||               \
   defined(__WINDOWS__)
@@ -114,6 +104,14 @@ static cJSON*
 JSON_read(int fd);
 static int
 JSONStream_Output(struct iperf_test* test, const char* event_name, cJSON* obj);
+static void
+iperf_on_new_stream(struct iperf_stream*);
+static void
+iperf_on_test_start(struct iperf_test*);
+static void
+iperf_on_connect(struct iperf_test*);
+static void
+iperf_on_test_finish(struct iperf_test*);
 
 /*************************** Print usage functions
  * ****************************/
@@ -1109,6 +1107,7 @@ iperf_on_connect(struct iperf_test* test)
 void
 iperf_on_test_finish(struct iperf_test* test)
 {
+  (void)test;
 }
 
 /******************************************************************************/
@@ -1402,6 +1401,7 @@ iperf_parse_arguments(struct iperf_test* test, int argc, char** argv)
 #if defined(linux) || defined(__FreeBSD__)
         test->settings->num_ostreams = unit_atoi(optarg);
         client_flag = 1;
+        break;
 #else  /* linux */
         i_errno = IEUNIMP;
         return -1;
@@ -1998,7 +1998,7 @@ iperf_set_send_state(struct iperf_test* test, signed char state)
 {
   if (test->ctrl_sck >= 0) {
     test->state = state;
-    if (Nwrite(test->ctrl_sck, (char*)&state, sizeof(state), Ptcp) < 0) {
+    if (Nwrite(test->ctrl_sck, (char*)&state, sizeof(state)) < 0) {
       i_errno = IESENDMESSAGE;
       return -1;
     }
@@ -2033,7 +2033,7 @@ iperf_check_total_rate(struct iperf_test* test,
   double seconds;
   uint64_t bits_per_second;
   iperf_size_t total_bytes;
-  int i;
+  iperf_size_t i;
 
   if (test->done || test->settings->bitrate_limit ==
                       0) // Continue only if check should be done
@@ -2295,7 +2295,7 @@ iperf_exchange_parameters(struct iperf_test* test)
         return -1;
       i_errno = IEAUTHTEST;
       err = htonl(i_errno);
-      if (Nwrite(test->ctrl_sck, (char*)&err, sizeof(err), Ptcp) < 0) {
+      if (Nwrite(test->ctrl_sck, (char*)&err, sizeof(err)) < 0) {
         i_errno = IECTRLWRITE;
         return -1;
       }
@@ -2307,12 +2307,12 @@ iperf_exchange_parameters(struct iperf_test* test)
       if (iperf_set_send_state(test, SERVER_ERROR) != 0)
         return -1;
       err = htonl(i_errno);
-      if (Nwrite(test->ctrl_sck, (char*)&err, sizeof(err), Ptcp) < 0) {
+      if (Nwrite(test->ctrl_sck, (char*)&err, sizeof(err)) < 0) {
         i_errno = IECTRLWRITE;
         return -1;
       }
       err = htonl(errno);
-      if (Nwrite(test->ctrl_sck, (char*)&err, sizeof(err), Ptcp) < 0) {
+      if (Nwrite(test->ctrl_sck, (char*)&err, sizeof(err)) < 0) {
         i_errno = IECTRLWRITE;
         return -1;
       }
@@ -2901,10 +2901,10 @@ JSON_write(int fd, cJSON* json)
   else {
     hsize = strlen(str);
     nsize = htonl(hsize);
-    if (Nwrite(fd, (char*)&nsize, sizeof(nsize), Ptcp) < 0)
+    if (Nwrite(fd, (char*)&nsize, sizeof(nsize)) < 0)
       r = -1;
     else {
-      if (Nwrite(fd, str, hsize, Ptcp) < 0)
+      if (Nwrite(fd, str, hsize) < 0)
         r = -1;
     }
     cJSON_free(str);
@@ -2928,14 +2928,19 @@ JSON_read(int fd)
    * Then read the JSON into a buffer and parse it.  Return a parsed JSON
    * structure, NULL if there was an error.
    */
-  if (Nread(fd, (char*)&nsize, sizeof(nsize), Ptcp) >= 0) {
+  if (Nread(fd, (char*)&nsize, sizeof(nsize)) >= 0) {
     hsize = ntohl(nsize);
+
+    if (hsize > INT_MAX) {
+      printf("WARNING:  JSON string would cause overflow (0x%x)\n", hsize);
+      return json;
+    }
     /* Allocate a buffer to hold the JSON */
     strsize = hsize + 1; /* +1 for trailing NULL */
     if (strsize) {
       str = (char*)calloc(sizeof(char), strsize);
       if (str != NULL) {
-        rc = Nread(fd, str, hsize, Ptcp);
+        rc = Nread(fd, str, hsize);
         if (rc >= 0) {
           /*
            * We should be reading in the number of bytes corresponding
@@ -2943,7 +2948,7 @@ JSON_read(int fd)
            * socket might have prematurely closed.  Only do the JSON
            * parsing if we got the correct number of bytes.
            */
-          if (rc == hsize) {
+          if (rc == (int)hsize) {
             json = cJSON_Parse(str);
           } else {
             printf("WARNING:  Size of data read does not "
@@ -3232,7 +3237,7 @@ iperf_defaults(struct iperf_test* testp)
   udp->connect = iperf_udp_connect;
   udp->send = iperf_udp_send;
   udp->recv = iperf_udp_recv;
-  udp->init = iperf_udp_init;
+  udp->init = NULL;
   SLIST_INSERT_AFTER(tcp, udp, protocols);
 
   set_protocol(testp, Ptcp);
@@ -5543,8 +5548,7 @@ iperf_got_sigend(struct iperf_test* test)
 
   if (test->ctrl_sck >= 0) {
     test->state = (test->role == 'c') ? CLIENT_TERMINATE : SERVER_TERMINATE;
-    (void)Nwrite(
-      test->ctrl_sck, (char*)&test->state, sizeof(signed char), Ptcp);
+    (void)Nwrite(test->ctrl_sck, (char*)&test->state, sizeof(signed char));
   }
   i_errno = (test->role == 'c') ? IECLIENTTERM : IESERVERTERM;
   iperf_errexit(test, "interrupt - %s", iperf_strerror(i_errno));
@@ -5719,100 +5723,6 @@ iperf_json_finish(struct iperf_test* test)
   return 0;
 }
 
-/* CPU affinity stuff - Linux, FreeBSD, and Windows only. */
-
-int
-iperf_setaffinity(struct iperf_test* test, int affinity)
-{
-#if defined(HAVE_SCHED_SETAFFINITY)
-  cpu_set_t cpu_set;
-
-  CPU_ZERO(&cpu_set);
-  CPU_SET(affinity, &cpu_set);
-  if (sched_setaffinity(0, sizeof(cpu_set_t), &cpu_set) != 0) {
-    i_errno = IEAFFINITY;
-    return -1;
-  }
-  return 0;
-#elif defined(HAVE_CPUSET_SETAFFINITY)
-  cpuset_t cpumask;
-
-  if (cpuset_getaffinity(
-        CPU_LEVEL_WHICH, CPU_WHICH_PID, -1, sizeof(cpuset_t), &test->cpumask) !=
-      0) {
-    i_errno = IEAFFINITY;
-    return -1;
-  }
-
-  CPU_ZERO(&cpumask);
-  CPU_SET(affinity, &cpumask);
-
-  if (cpuset_setaffinity(
-        CPU_LEVEL_WHICH, CPU_WHICH_PID, -1, sizeof(cpuset_t), &cpumask) != 0) {
-    i_errno = IEAFFINITY;
-    return -1;
-  }
-  return 0;
-#elif defined(HAVE_SETPROCESSAFFINITYMASK)
-  HANDLE process = GetCurrentProcess();
-  DWORD_PTR processAffinityMask = 1 << affinity;
-
-  if (SetProcessAffinityMask(process, processAffinityMask) == 0) {
-    i_errno = IEAFFINITY;
-    return -1;
-  }
-  return 0;
-#else  /* neither HAVE_SCHED_SETAFFINITY nor HAVE_CPUSET_SETAFFINITY nor       \
-          HAVE_SETPROCESSAFFINITYMASK */
-  i_errno = IEAFFINITY;
-  return -1;
-#endif /* neither HAVE_SCHED_SETAFFINITY nor HAVE_CPUSET_SETAFFINITY nor       \
-          HAVE_SETPROCESSAFFINITYMASK */
-}
-
-int
-iperf_clearaffinity(struct iperf_test* test)
-{
-#if defined(HAVE_SCHED_SETAFFINITY)
-  cpu_set_t cpu_set;
-  int i;
-
-  CPU_ZERO(&cpu_set);
-  for (i = 0; i < CPU_SETSIZE; ++i)
-    CPU_SET(i, &cpu_set);
-  if (sched_setaffinity(0, sizeof(cpu_set_t), &cpu_set) != 0) {
-    i_errno = IEAFFINITY;
-    return -1;
-  }
-  return 0;
-#elif defined(HAVE_CPUSET_SETAFFINITY)
-  if (cpuset_setaffinity(
-        CPU_LEVEL_WHICH, CPU_WHICH_PID, -1, sizeof(cpuset_t), &test->cpumask) !=
-      0) {
-    i_errno = IEAFFINITY;
-    return -1;
-  }
-  return 0;
-#elif defined(HAVE_SETPROCESSAFFINITYMASK)
-  HANDLE process = GetCurrentProcess();
-  DWORD_PTR processAffinityMask;
-  DWORD_PTR lpSystemAffinityMask;
-
-  if (GetProcessAffinityMask(
-        process, &processAffinityMask, &lpSystemAffinityMask) == 0 ||
-      SetProcessAffinityMask(process, lpSystemAffinityMask) == 0) {
-    i_errno = IEAFFINITY;
-    return -1;
-  }
-  return 0;
-#else  /* neither HAVE_SCHED_SETAFFINITY nor HAVE_CPUSET_SETAFFINITY nor       \
-          HAVE_SETPROCESSAFFINITYMASK */
-  i_errno = IEAFFINITY;
-  return -1;
-#endif /* neither HAVE_SCHED_SETAFFINITY nor HAVE_CPUSET_SETAFFINITY nor       \
-          HAVE_SETPROCESSAFFINITYMASK */
-}
-
 static char iperf_timestr[100];
 static char linebuffer[1024];
 
@@ -5887,7 +5797,7 @@ iperf_printf(struct iperf_test* test, const char* format, ...)
       r += r0;
     }
     /* Should always be true as long as sizeof(ct) < sizeof(linebuffer) */
-    if (r < sizeof(linebuffer)) {
+    if (r < (int)sizeof(linebuffer)) {
       va_start(argp, format);
       r0 = vsnprintf(linebuffer + r, sizeof(linebuffer) - r, format, argp);
       va_end(argp);

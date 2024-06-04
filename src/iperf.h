@@ -154,19 +154,20 @@ struct iperf_settings
   iperf_size_t bitrate_limit;    /* server's maximum allowed total data rate for
                                     all streams*/
   double bitrate_limit_interval; /* interval for averaging total data rate */
-  int bitrate_limit_stats_per_interval; /* calculated number of stats periods
-                                           for averaging total data rate */
-  uint64_t fqrate;                      /* target data rate for FQ pacing*/
-  int pacing_timer;                     /* pacing timer in microseconds */
-  int burst;                            /* packets per burst */
-  int mss;                              /* for TCP MSS */
-  int ttl;                              /* IP TTL option */
-  int tos;                              /* type of service bit */
-  int flowlabel;                        /* IPv6 flow label */
-  iperf_size_t bytes;                   /* number of bytes to send */
-  iperf_size_t blocks;                  /* number of blocks (packets) to send */
-  char unit_format;                     /* -f */
-  int num_ostreams;                     /* SCTP initmsg settings */
+  iperf_size_t
+    bitrate_limit_stats_per_interval; /* calculated number of stats periods
+                                for averaging total data rate */
+  uint64_t fqrate;                    /* target data rate for FQ pacing*/
+  int pacing_timer;                   /* pacing timer in microseconds */
+  int burst;                          /* packets per burst */
+  int mss;                            /* for TCP MSS */
+  int ttl;                            /* IP TTL option */
+  int tos;                            /* type of service bit */
+  int flowlabel;                      /* IPv6 flow label */
+  iperf_size_t bytes;                 /* number of bytes to send */
+  iperf_size_t blocks;                /* number of blocks (packets) to send */
+  char unit_format;                   /* -f */
+  int num_ostreams;                   /* SCTP initmsg settings */
   int dont_fragment; /* Whether to set IP flag Do-Not_Fragment */
 #if defined(HAVE_SSL)
   char* authtoken; /* Authentication token */
@@ -215,15 +216,15 @@ struct iperf_stream
    * for udp measurements - This can be a structure outside stream, and
    * stream can have a pointer to this
    */
-  int64_t packet_count;
-  int64_t peer_packet_count;
-  int64_t peer_omitted_packet_count;
-  int64_t omitted_packet_count;
+  uint64_t packet_count;
+  uint64_t peer_packet_count;
+  uint64_t peer_omitted_packet_count;
+  uint64_t omitted_packet_count;
   double jitter;
   double prev_transit;
-  int64_t outoforder_packets;
-  int64_t omitted_outoforder_packets;
-  int64_t cnt_error;
+  uint64_t outoforder_packets;
+  uint64_t omitted_outoforder_packets;
+  uint64_t cnt_error;
   int64_t omitted_cnt_error;
   uint64_t target;
 

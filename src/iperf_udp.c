@@ -62,7 +62,7 @@ iperf_udp_recv(struct iperf_stream* sp)
   double transit = 0, d = 0;
   struct iperf_time sent_time, arrival_time, temp_time;
 
-  r = Nread(sp->socket, sp->buffer, size, Pudp);
+  r = Nread(sp->socket, sp->buffer, size);
 
   /*
    * If we got an error in the read, or if we didn't read anything
@@ -236,7 +236,7 @@ iperf_udp_send(struct iperf_stream* sp)
     memcpy(sp->buffer + 8, &pcount, sizeof(pcount));
   }
 
-  r = Nwrite(sp->socket, sp->buffer, size, Pudp);
+  r = Nwrite(sp->socket, sp->buffer, size);
 
   if (r <= 0) {
     --sp->packet_count; /* Don't count messages that no data was sent from
@@ -657,14 +657,4 @@ iperf_udp_connect(struct iperf_test* test)
   }
 
   return s;
-}
-
-/* iperf_udp_init
- *
- * initializer for UDP streams in TEST_START
- */
-int
-iperf_udp_init(struct iperf_test* test)
-{
-  return 0;
 }

@@ -68,6 +68,12 @@ iperf_json_printf(const char* format, ...);
 void
 iperf_dump_fdset(FILE* fp, const char* str, int nfds, fd_set* fds);
 
+/* CPU affinity routines */
+int
+iperf_setaffinity(int affinity);
+int
+iperf_clearaffinity();
+
 #ifndef HAVE_DAEMON
 extern int
 daemon(int nochdir, int noclose);

@@ -368,11 +368,6 @@ typedef u_int64_t atomic_uint_fast64_t;
   struct protocol* get_protocol(struct iperf_test*, int);
   int set_protocol(struct iperf_test*, int);
 
-  void iperf_on_new_stream(struct iperf_stream*);
-  void iperf_on_test_start(struct iperf_test*);
-  void iperf_on_connect(struct iperf_test*);
-  void iperf_on_test_finish(struct iperf_test*);
-
   extern jmp_buf env;
 
   /* Client routines. */
@@ -394,10 +389,6 @@ typedef u_int64_t atomic_uint_fast64_t;
   /* JSON output routines. */
   int iperf_json_start(struct iperf_test*);
   int iperf_json_finish(struct iperf_test*);
-
-  /* CPU affinity routines */
-  int iperf_setaffinity(struct iperf_test*, int affinity);
-  int iperf_clearaffinity(struct iperf_test*);
 
   /* Custom printf routine. */
   int iperf_printf(struct iperf_test* test, const char* format, ...)

@@ -393,7 +393,7 @@ netannounce(int domain,
 /********************************************************************/
 
 int
-Nread(int fd, char* buf, size_t count, int prot)
+Nread(int fd, char* buf, size_t count)
 {
   register ssize_t r;
   register size_t nleft = count;
@@ -479,7 +479,7 @@ Nread(int fd, char* buf, size_t count, int prot)
  */
 
 int
-Nwrite(int fd, const char* buf, size_t count, int prot)
+Nwrite(int fd, const char* buf, size_t count)
 {
   register ssize_t r;
   register size_t nleft = count;
@@ -525,7 +525,7 @@ has_sendfile(void)
  */
 
 int
-Nsendfile(int fromfd, int tofd, const char* buf, size_t count)
+Nsendfile(int fromfd, int tofd, size_t count)
 {
 #if defined(HAVE_SENDFILE)
   off_t offset;

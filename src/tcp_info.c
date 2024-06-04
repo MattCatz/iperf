@@ -162,6 +162,7 @@ long
 get_snd_wnd(struct iperf_interval_results* irp)
 {
 #if !defined(HAVE_TCP_INFO_SND_WND)
+  (void)irp;
   return -1;
 #elif defined(linux) && defined(TCP_MD5SIG)
   return irp->tcpInfo.tcpi_snd_wnd;
@@ -172,6 +173,7 @@ get_snd_wnd(struct iperf_interval_results* irp)
 #elif defined(__OpenBSD__) && defined(TCP_INFO)
   return irp->tcpInfo.tcpi_snd_wnd;
 #else
+  (void)irp;
   return -1;
 #endif
 }

@@ -161,6 +161,7 @@ iperf_create_streams(struct iperf_test* test, int sender)
 static void
 test_timer_proc(TimerClientData client_data, struct iperf_time* nowP)
 {
+  (void)nowP;
   struct iperf_test* test = client_data.p;
 
   test->timer = NULL;
@@ -170,6 +171,8 @@ test_timer_proc(TimerClientData client_data, struct iperf_time* nowP)
 static void
 client_stats_timer_proc(TimerClientData client_data, struct iperf_time* nowP)
 {
+  (void)nowP;
+
   struct iperf_test* test = client_data.p;
 
   if (test->done)
@@ -181,6 +184,8 @@ client_stats_timer_proc(TimerClientData client_data, struct iperf_time* nowP)
 static void
 client_reporter_timer_proc(TimerClientData client_data, struct iperf_time* nowP)
 {
+  (void)nowP;
+
   struct iperf_test* test = client_data.p;
 
   if (test->done)
@@ -365,12 +370,12 @@ iperf_handle_message_client(struct iperf_test* test)
       i_errno = IEACCESSDENIED;
       return -1;
     case SERVER_ERROR:
-      if (Nread(test->ctrl_sck, (char*)&err, sizeof(err), Ptcp) < 0) {
+      if (Nread(test->ctrl_sck, (char*)&err, sizeof(err)) < 0) {
         i_errno = IECTRLREAD;
         return -1;
       }
       i_errno = ntohl(err);
-      if (Nread(test->ctrl_sck, (char*)&err, sizeof(err), Ptcp) < 0) {
+      if (Nread(test->ctrl_sck, (char*)&err, sizeof(err)) < 0) {
         i_errno = IECTRLREAD;
         return -1;
       }
@@ -435,7 +440,7 @@ iperf_connect(struct iperf_test* test)
   }
 #endif /* HAVE_TCP_USER_TIMEOUT */
 
-  if (Nwrite(test->ctrl_sck, test->cookie, COOKIE_SIZE, Ptcp) < 0) {
+  if (Nwrite(test->ctrl_sck, test->cookie, COOKIE_SIZE) < 0) {
     i_errno = IESENDCOOKIE;
     return -1;
   }
@@ -569,7 +574,7 @@ iperf_run_client(struct iperf_test* test)
       return -1;
 
   if (test->affinity != -1)
-    if (iperf_setaffinity(test, test->affinity) != 0)
+    if (iperf_setaffinity(test->affinity) != 0)
       return -1;
 
   if (test->json_output)

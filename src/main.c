@@ -131,6 +131,7 @@ static jmp_buf sigend_jmp_buf;
 
 static void __attribute__((noreturn)) sigend_handler(int sig)
 {
+  (void)sig;
   longjmp(sigend_jmp_buf, 1);
 }
 

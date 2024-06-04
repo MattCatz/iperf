@@ -157,7 +157,7 @@ Base64Decode(const char* b64message, unsigned char** buffer, size_t* length)
 { // Decodes a base64 encoded string
   BIO *bio, *b64;
 
-  int decodeLen = calcDecodeLength(b64message);
+  size_t decodeLen = calcDecodeLength(b64message);
   *buffer = (unsigned char*)malloc(decodeLen + 1);
   (*buffer)[decodeLen] = '\0';
 
@@ -384,9 +384,9 @@ decrypt_rsa_message(const unsigned char* encryptedtext,
   BIO_free(bioBuff);
 
   /* Treat a decryption error as an empty string. */
-  if (plaintext_len < 0) {
-    plaintext_len = 0;
-  }
+  // if (plaintext_len < 0) {
+  //   plaintext_len = 0;
+  // }
 
   return plaintext_len;
 
