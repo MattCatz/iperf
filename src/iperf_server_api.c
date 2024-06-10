@@ -203,10 +203,12 @@ iperf_accept(struct iperf_test* test)
         printf("successfully sent ACCESS_DENIED to an unsolicited "
                "connection request during active test\n");
     }
+    shutdown(s, SHUT_WR);
     close(s);
   }
   return 0;
 error_handling:
+  shutdown(s, SHUT_WR);
   close(s);
   return ret;
 }
@@ -217,10 +219,10 @@ iperf_handle_message_server(struct iperf_test* test)
 {
   int rval;
   struct iperf_stream* sp;
+  signed char state;
 
   // XXX: Need to rethink how this behaves to fit API
-  if ((rval = Nread(
-         test->ctrl_sck, (char*)&test->state, sizeof(signed char))) <= 0) {
+  if ((rval = Nread(test->ctrl_sck, (char*)&state, sizeof(signed char))) <= 0) {
     if (rval == 0) {
       iperf_err(test, "the client has unexpectedly closed the connection");
       i_errno = IECTRLCLOSE;
@@ -232,7 +234,8 @@ iperf_handle_message_server(struct iperf_test* test)
     }
   }
 
-  switch (test->state) {
+  test->state = state;
+  switch (state) {
     case TEST_START:
       break;
     case TEST_END:
@@ -241,7 +244,7 @@ iperf_handle_message_server(struct iperf_test* test)
       test->stats_callback(test);
       SLIST_FOREACH(sp, &test->streams, streams)
       {
-        close(sp->socket);
+        shutdown(sp->socket, SHUT_WR);
       }
       test->reporter_callback(test);
       if (iperf_set_send_state(test, EXCHANGE_RESULTS) != 0)
@@ -270,7 +273,7 @@ iperf_handle_message_server(struct iperf_test* test)
       iperf_err(test, "the client has terminated");
       SLIST_FOREACH(sp, &test->streams, streams)
       {
-        close(sp->socket);
+        shutdown(sp->socket, SHUT_WR);
       }
       test->state = IPERF_DONE;
       break;
@@ -287,21 +290,11 @@ server_timer_proc(TimerClientData client_data, struct iperf_time* nowP)
 {
   (void)nowP;
   struct iperf_test* test = client_data.p;
-  struct iperf_stream* sp;
 
   test->timer = NULL;
   if (test->done)
     return;
   test->done = 1;
-  /* Free streams */
-  while (!SLIST_EMPTY(&test->streams)) {
-    sp = SLIST_FIRST(&test->streams);
-    SLIST_REMOVE_HEAD(&test->streams, streams);
-    close(sp->socket);
-    iperf_free_stream(sp);
-  }
-  close(test->ctrl_sck);
-  test->ctrl_sck = -1;
 }
 
 static void
@@ -438,19 +431,21 @@ cleanup_server(struct iperf_test* test, int rc)
   {
     int rc;
     sp->done = 1;
+    if (sp->forked) {
     rc = pthread_cancel(sp->thr);
-    if (rc != 0 && rc != ESRCH) {
-      i_errno = IEPTHREADCANCEL;
-      errno = rc;
-      iperf_err(
-        test, "cleanup_server in pthread_cancel - %s", iperf_strerror(i_errno));
-    }
-    rc = pthread_join(sp->thr, NULL);
-    if (rc != 0 && rc != ESRCH) {
-      i_errno = IEPTHREADJOIN;
-      errno = rc;
-      iperf_err(
-        test, "cleanup_server in pthread_join - %s", iperf_strerror(i_errno));
+      if (rc != 0 && rc != ESRCH) {
+        i_errno = IEPTHREADCANCEL;
+        errno = rc;
+        iperf_err(
+          test, "cleanup_server in pthread_cancel - %s", iperf_strerror(i_errno));
+      }
+      rc = pthread_join(sp->thr, NULL);
+      if (rc != 0 && rc != ESRCH) {
+        i_errno = IEPTHREADJOIN;
+        errno = rc;
+        iperf_err(
+          test, "cleanup_server in pthread_join - %s", iperf_strerror(i_errno));
+      }
     }
     if (test->debug_level >= DEBUG_LEVEL_INFO) {
       iperf_printf(test, "Thread FD %d stopped\n", sp->socket);
@@ -462,13 +457,18 @@ cleanup_server(struct iperf_test* test, int rc)
     iperf_printf(test, "All threads stopped\n");
   }
 
-  /* Close open streams */
-  SLIST_FOREACH(sp, &test->streams, streams)
-  {
+  /* Free streams */
+  while (!SLIST_EMPTY(&test->streams)) {
+    sp = SLIST_FIRST(&test->streams);
+    SLIST_REMOVE_HEAD(&test->streams, streams);
+
     if (sp->socket > -1) {
+      shutdown(sp->socket, SHUT_WR);
       close(sp->socket);
       sp->socket = -1;
     }
+
+    iperf_free_stream(sp);
   }
 
   /* Close open test sockets */
@@ -532,7 +532,7 @@ iperf_run_server(struct iperf_test* test)
   struct iperf_time diff_time;
   struct timeval used_timeout = {0};
   iperf_size_t last_receive_blocks;
-  int flag;
+  int flag = -1;
   int64_t t_usecs;
   int64_t timeout_us;
   int64_t rcv_timeout_us;
@@ -789,6 +789,7 @@ iperf_run_server(struct iperf_test* test)
                             "algorithm not supported");
                   } else {
                     saved_errno = errno;
+                    shutdown(s, SHUT_WR);
                     close(s);
                     cleanup_server(test, -1);
                     errno = saved_errno;
@@ -804,6 +805,7 @@ iperf_run_server(struct iperf_test* test)
                 rc = getsockopt(s, IPPROTO_TCP, TCP_CONGESTION, ca, &len);
                 if (rc < 0 && test->congestion) {
                   saved_errno = errno;
+                  shutdown(s, SHUT_WR);
                   close(s);
                   cleanup_server(test, -1);
                   errno = saved_errno;
@@ -862,6 +864,7 @@ iperf_run_server(struct iperf_test* test)
           if (test->protocol->id != Ptcp) {
             poll_list.prot.fd = 0;
             poll_list.prot.events = 0;
+            shutdown(test->prot_listener, SHUT_WR);
             close(test->prot_listener);
             test->prot_listener = -1;
           } else {
@@ -869,6 +872,7 @@ iperf_run_server(struct iperf_test* test)
                 test->settings->socket_bufsize) {
               poll_list.listen.fd = 0;
               poll_list.listen.events = 0;
+              shutdown(test->listener, SHUT_WR);
               close(test->listener);
               test->listener = -1;
               if ((s = netannounce(test->settings->domain,
@@ -943,6 +947,7 @@ iperf_run_server(struct iperf_test* test)
             if (test->debug_level >= DEBUG_LEVEL_INFO) {
               iperf_printf(test, "Thread FD %d created\n", sp->socket);
             }
+            sp->forked = 1;
           }
           if (test->debug_level >= DEBUG_LEVEL_INFO) {
             iperf_printf(test, "All threads created\n");

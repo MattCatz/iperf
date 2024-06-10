@@ -1039,7 +1039,7 @@ iperf_on_connect(struct iperf_test* test)
   char now_str[100];
   char ipr[INET6_ADDRSTRLEN];
   int port;
-  struct sockaddr_storage sa;
+  struct sockaddr_storage sa = {0};
   struct sockaddr_in* sa_inP;
   struct sockaddr_in6* sa_in6P;
   socklen_t len;
@@ -1604,6 +1604,7 @@ iperf_parse_arguments(struct iperf_test* test, int argc, char** argv)
         xbe->name = strdup(optarg);
         if (!xbe->name) {
           i_errno = IESETSCTPBINDX;
+          free(xbe);
           return -1;
         }
         TAILQ_INSERT_TAIL(&test->xbind_addrs, xbe, link);
@@ -4885,6 +4886,7 @@ iperf_print_results(struct iperf_test* test)
         if (test->server_output_text) {
           iperf_printf(
             test, "\nServer output:\n%s\n", test->server_output_text);
+          free(test->server_output_text);
           test->server_output_text = NULL;
         }
       }
@@ -4907,7 +4909,8 @@ iperf_print_results(struct iperf_test* test)
 void
 iperf_reporter_callback(struct iperf_test* test)
 {
-  switch (test->state) {
+  signed char state = test->state;
+  switch (state) {
     case TEST_RUNNING:
     case STREAM_RUNNING:
       /* print interval results for each stream */

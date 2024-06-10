@@ -387,7 +387,7 @@ extern "C"
   void iperf_errexit(struct iperf_test* test, const char* format, ...)
     __attribute__((format(printf, 2, 3), noreturn));
   char* iperf_strerror(int);
-  extern int i_errno;
+  extern _Atomic(int) i_errno;
   enum
   {
     IENONE = 0, // No error

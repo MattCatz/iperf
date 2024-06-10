@@ -399,7 +399,7 @@ decrypt_rsa_message(const unsigned char* encryptedtext,
 
 errreturn:
   fprintf(stderr, "%s\n", ERR_error_string(ERR_get_error(), NULL));
-  return 0;
+  return -1;
 }
 
 int

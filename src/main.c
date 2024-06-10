@@ -33,6 +33,8 @@
 #include <sys/types.h> // for u_int64_t
 #include <unistd.h>    // for daemon
 struct iperf_test;
+static struct iperf_test* test;
+
 
 static int
 run(struct iperf_test* test);
@@ -41,7 +43,6 @@ run(struct iperf_test* test);
 int
 main(int argc, char** argv)
 {
-  struct iperf_test* test;
 
   /*
    * Atomics check. We prefer to have atomic types (which is
@@ -63,40 +64,6 @@ main(int argc, char** argv)
 #endif // __GNUC__
 #endif // HAVE_STDATOMIC
 
-  // XXX: Setting the process affinity requires root on most systems.
-  //      Is this a feature we really need?
-#ifdef TEST_PROC_AFFINITY
-  /* didn't seem to work.... */
-  /*
-   * increasing the priority of the process to minimise packet generation
-   * delay
-   */
-  int rc = setpriority(PRIO_PROCESS, 0, -15);
-
-  if (rc < 0) {
-    perror("setpriority:");
-    fprintf(stderr, "setting priority to valid level\n");
-    rc = setpriority(PRIO_PROCESS, 0, 0);
-  }
-
-  /* setting the affinity of the process  */
-  cpu_set_t cpu_set;
-  int affinity = -1;
-  int ncores = 1;
-
-  sched_getaffinity(0, sizeof(cpu_set_t), &cpu_set);
-  if (errno)
-    perror("couldn't get affinity:");
-
-  if ((ncores = sysconf(_SC_NPROCESSORS_CONF)) <= 0)
-    err("sysconf: couldn't get _SC_NPROCESSORS_CONF");
-
-  CPU_ZERO(&cpu_set);
-  CPU_SET(affinity, &cpu_set);
-  if (sched_setaffinity(0, sizeof(cpu_set_t), &cpu_set) != 0)
-    err("couldn't change CPU affinity");
-#endif
-
   test = iperf_new_test();
   if (!test)
     iperf_errexit(NULL, "create new test error - %s", iperf_strerror(i_errno));
@@ -117,12 +84,10 @@ main(int argc, char** argv)
   return 0;
 }
 
-static jmp_buf sigend_jmp_buf;
-
 static void __attribute__((noreturn)) sigend_handler(int sig)
 {
   (void)sig;
-  longjmp(sigend_jmp_buf, 1);
+  iperf_got_sigend(test);
 }
 
 /**************************************************************************/
@@ -131,8 +96,6 @@ run(struct iperf_test* test)
 {
   /* Termination signals. */
   iperf_catch_sigend(sigend_handler);
-  if (setjmp(sigend_jmp_buf))
-    iperf_got_sigend(test);
 
   /* Ignore SIGPIPE to simplify error handling */
   signal(SIGPIPE, SIG_IGN);

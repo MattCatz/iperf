@@ -114,6 +114,7 @@ iperf_create_streams(struct iperf_test* test, int sender)
                        test->congestion,
                        strlen(test->congestion)) < 0) {
           saved_errno = errno;
+          shutdown(s,SHUT_WR);
           close(s);
           errno = saved_errno;
           i_errno = IESETCONGESTION;
@@ -127,10 +128,16 @@ iperf_create_streams(struct iperf_test* test, int sender)
         rc = getsockopt(s, IPPROTO_TCP, TCP_CONGESTION, ca, &len);
         if (rc < 0 && test->congestion) {
           saved_errno = errno;
+          shutdown(s,SHUT_WR);
           close(s);
           errno = saved_errno;
           i_errno = IESETCONGESTION;
           return -1;
+        }
+        if (test->congestion_used) {
+          if (test->debug)
+            printf("Overriding existing congestion algorithm: %s\n", test->congestion_used);
+          free(test->congestion_used);
         }
         // Set actual used congestion alg, or set to unknown if could not
         // get it
@@ -312,7 +319,8 @@ iperf_handle_message_client(struct iperf_test* test)
     }
   }
 
-  switch (test->state) {
+  signed char state = test->state;
+  switch (state) {
     case PARAM_EXCHANGE:
       if (iperf_exchange_parameters(test) < 0)
         return -1;
@@ -523,6 +531,7 @@ iperf_client_end(struct iperf_test* test)
   /* Close all stream sockets */
   SLIST_FOREACH(sp, &test->streams, streams)
   {
+    shutdown(sp->socket,SHUT_WR);
     close(sp->socket);
   }
 
@@ -536,8 +545,10 @@ iperf_client_end(struct iperf_test* test)
   }
 
   /* Close control socket */
-  if (test->ctrl_sck >= 0)
+  if (test->ctrl_sck >= 0) {
+    shutdown(test->ctrl_sck,SHUT_WR);
     close(test->ctrl_sck);
+  }
 
   return 0;
 }
@@ -815,20 +826,22 @@ cleanup_and_fail:
   {
     sp->done = 1;
     int rc;
-    rc = pthread_cancel(sp->thr);
-    if (rc != 0 && rc != ESRCH) {
-      i_errno = IEPTHREADCANCEL;
-      errno = rc;
-      iperf_err(test,
-                "cleanup_and_fail in pthread_cancel - %s",
-                iperf_strerror(i_errno));
-    }
-    rc = pthread_join(sp->thr, NULL);
-    if (rc != 0 && rc != ESRCH) {
-      i_errno = IEPTHREADJOIN;
-      errno = rc;
-      iperf_err(
-        test, "cleanup_and_fail in pthread_join - %s", iperf_strerror(i_errno));
+    if(sp->forked){
+      rc = pthread_cancel(sp->thr);
+      if (rc != 0 && rc != ESRCH) {
+        i_errno = IEPTHREADCANCEL;
+        errno = rc;
+        iperf_err(test,
+                  "cleanup_and_fail in pthread_cancel - %s",
+                  iperf_strerror(i_errno));
+      }
+      rc = pthread_join(sp->thr, NULL);
+      if (rc != 0 && rc != ESRCH) {
+        i_errno = IEPTHREADJOIN;
+        errno = rc;
+        iperf_err(
+          test, "cleanup_and_fail in pthread_join - %s", iperf_strerror(i_errno));
+      }
     }
     if (test->debug_level >= DEBUG_LEVEL_INFO) {
       iperf_printf(test, "Thread FD %d stopped\n", sp->socket);

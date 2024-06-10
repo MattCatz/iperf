@@ -65,7 +65,7 @@ iperf_err(struct iperf_test* test, const char* format, ...)
   if (test != NULL && test->json_output && test->json_top != NULL)
     cJSON_AddStringToObject(test->json_top, "error", str);
   else {
-    if (pthread_mutex_lock(&(test->print_mutex)) != 0) {
+    if (test && pthread_mutex_lock(&(test->print_mutex)) != 0) {
       perror("iperf_err: pthread_mutex_lock");
     }
 
@@ -81,7 +81,7 @@ iperf_err(struct iperf_test* test, const char* format, ...)
       fprintf(stderr, "iperf3: %s\n", str);
     }
 
-    if (pthread_mutex_unlock(&(test->print_mutex)) != 0) {
+    if (test && pthread_mutex_unlock(&(test->print_mutex)) != 0) {
       perror("iperf_err: pthread_mutex_unlock");
     }
   }
@@ -114,7 +114,7 @@ iperf_errexit(struct iperf_test* test, const char* format, ...)
     }
     iperf_json_finish(test);
   } else {
-    if (pthread_mutex_lock(&(test->print_mutex)) != 0) {
+    if (test && pthread_mutex_lock(&(test->print_mutex)) != 0) {
       perror("iperf_errexit: pthread_mutex_lock");
     }
 
@@ -130,7 +130,7 @@ iperf_errexit(struct iperf_test* test, const char* format, ...)
       fprintf(stderr, "iperf3: %s\n", str);
     }
 
-    if (pthread_mutex_unlock(&(test->print_mutex)) != 0) {
+    if (test && pthread_mutex_unlock(&(test->print_mutex)) != 0) {
       perror("iperf_errexit: pthread_mutex_unlock");
     }
   }
@@ -141,7 +141,7 @@ iperf_errexit(struct iperf_test* test, const char* format, ...)
   exit(1);
 }
 
-int i_errno;
+_Atomic(int) i_errno;
 
 char*
 iperf_strerror(int int_errno)

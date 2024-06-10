@@ -184,7 +184,8 @@ struct iperf_stream
   struct iperf_test* test;
 
   pthread_t thr;
-  int done;
+  int forked;
+  _Atomic(int) done;
 
   /* configurable members */
   int local_port;
@@ -199,7 +200,7 @@ struct iperf_stream
   /* non configurable members */
   struct iperf_stream_result* result; /* structure pointer to result */
   Timer* send_timer;
-  int green_light;
+  _Atomic(int) green_light;
   int buffer_fd;     /* data to send, file descriptor */
   char* buffer;      /* data to send, mmapped */
   int pending_size;  /* pending data to send */
@@ -210,17 +211,17 @@ struct iperf_stream
    * for udp measurements - This can be a structure outside stream, and
    * stream can have a pointer to this
    */
-  uint64_t packet_count;
-  uint64_t peer_packet_count;
-  uint64_t peer_omitted_packet_count;
-  uint64_t omitted_packet_count;
-  double jitter;
-  double prev_transit;
-  uint64_t outoforder_packets;
-  uint64_t omitted_outoforder_packets;
-  uint64_t cnt_error;
-  int64_t omitted_cnt_error;
-  uint64_t target;
+  _Atomic(uint64_t) packet_count;
+  _Atomic(uint64_t) peer_packet_count;
+  _Atomic(uint64_t) peer_omitted_packet_count;
+  _Atomic(uint64_t) omitted_packet_count;
+  _Atomic(double) jitter;
+  _Atomic(double) prev_transit;
+  _Atomic(uint64_t) outoforder_packets;
+  _Atomic(uint64_t) omitted_outoforder_packets;
+  _Atomic(uint64_t) cnt_error;
+  _Atomic(int64_t) omitted_cnt_error;
+  _Atomic(uint64_t) target;
 
   struct sockaddr_storage local_addr;
   struct sockaddr_storage remote_addr;
@@ -289,7 +290,7 @@ struct iperf_test
   int sender_has_retransmits;
   int other_side_has_retransmits; /* used if mode == BIDIRECTIONAL */
   struct protocol* protocol;
-  signed char state;
+  _Atomic(signed char) state;
   char* server_hostname; /* -c option */
   char* tmp_template;
   char* bind_address; /* first -B option */
@@ -360,7 +361,7 @@ struct iperf_test
   void (*reporter_callback)(struct iperf_test*);
   Timer* omit_timer;
   Timer* timer;
-  int done;
+  _Atomic(int) done;
   Timer* stats_timer;
   Timer* reporter_timer;
 
