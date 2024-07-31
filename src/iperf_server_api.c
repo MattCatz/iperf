@@ -157,6 +157,18 @@ iperf_accept(struct iperf_test* test)
       goto error_handling;
     }
 
+    if (test->server_linger) {
+      printf("%d\n", test->server_linger);
+      struct linger l_opt = {
+        .l_onoff = 1,
+        .l_linger = test->server_linger
+      };
+      if (setsockopt(test->ctrl_sck, SOL_SOCKET, SO_LINGER, &l_opt, sizeof l_opt)) {
+        i_errno = IESETLINGER;
+        goto error_handling;
+      }
+    }
+
 #if defined(HAVE_TCP_USER_TIMEOUT)
     int opt;
     if ((opt = test->settings->snd_timeout)) {
@@ -473,14 +485,18 @@ cleanup_server(struct iperf_test* test, int rc)
 
   /* Close open test sockets */
   if (test->ctrl_sck > -1) {
-    close(test->ctrl_sck);
+    shutdown(sp->socket, SHUT_WR);
+    if (close(test->ctrl_sck) != 0)
+      perror("Trouble closing control socket: ");
     test->ctrl_sck = -1;
   }
   if (test->listener > -1) {
+    shutdown(sp->socket, SHUT_WR);
     close(test->listener);
     test->listener = -1;
   }
   if (test->prot_listener > -1) { // May remain open if create socket failed
+    shutdown(sp->socket, SHUT_WR);
     close(test->prot_listener);
     test->prot_listener = -1;
   }

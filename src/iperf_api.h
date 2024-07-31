@@ -89,6 +89,7 @@ extern "C"
 #define OPT_JSON_STREAM 28
 #define OPT_SND_TIMEOUT 29
 #define OPT_USE_PKCS1_PADDING 30
+#define OPT_SERVER_LINGER 31
 
 /* states */
 #define TEST_START 1
@@ -517,6 +518,7 @@ extern "C"
     /* Timer errors */
     IENEWTIMER = 300,    // Unable to create new timer (check perror)
     IEUPDATETIMER = 301, // Unable to update timer (check perror)
+    IESETLINGER = 302,   // Unable to set SO Linger (check perror)
   };
 
 #ifdef __cplusplus

@@ -1274,6 +1274,7 @@ iperf_parse_arguments(struct iperf_test* test, int argc, char** argv)
     { "idle-timeout", required_argument, NULL, OPT_IDLE_TIMEOUT },
     { "rcv-timeout", required_argument, NULL, OPT_RCV_TIMEOUT },
     { "snd-timeout", required_argument, NULL, OPT_SND_TIMEOUT },
+    { "linger", required_argument, NULL, OPT_SERVER_LINGER },
     { "debug", optional_argument, NULL, 'd' },
     { "help", no_argument, NULL, 'h' },
     { NULL, 0, NULL, 0 }
@@ -1301,6 +1302,8 @@ iperf_parse_arguments(struct iperf_test* test, int argc, char** argv)
        *server_rsa_private_key = NULL;
   FILE* ptr_file;
 #endif /* HAVE_SSL */
+
+  struct iperf_settings* settings = (struct iperf_settings*) test->settings;
 
   while ((flag = getopt_long(
             argc,
@@ -1788,6 +1791,9 @@ iperf_parse_arguments(struct iperf_test* test, int argc, char** argv)
         test->settings->connect_timeout = unit_atoi(optarg);
         client_flag = 1;
         break;
+      case OPT_SERVER_LINGER:
+        test->server_linger = unit_atoi(optarg);
+        break;
       case 'h':
         usage_long(stdout);
         exit(0);
@@ -1959,6 +1965,11 @@ iperf_parse_arguments(struct iperf_test* test, int argc, char** argv)
 
   if ((test->role != 'c') && (test->role != 's')) {
     i_errno = IENOROLE;
+    return -1;
+  }
+
+  if ((test->role == 'c') && test->server_linger) {
+    i_errno = IESETLINGER;
     return -1;
   }
 

@@ -195,7 +195,7 @@ struct iperf_stream
   int sender;
   /* XXX: is settings just a pointer to the same struct in iperf_test? if not,
           should it be? */
-  struct iperf_settings* settings; /* pointer to structure settings */
+  const struct iperf_settings* settings; /* pointer to structure settings */
 
   /* non configurable members */
   struct iperf_stream_result* result; /* structure pointer to result */
@@ -215,8 +215,8 @@ struct iperf_stream
   _Atomic(uint64_t) peer_packet_count;
   _Atomic(uint64_t) peer_omitted_packet_count;
   _Atomic(uint64_t) omitted_packet_count;
-  _Atomic(double) jitter;
-  _Atomic(double) prev_transit;
+  double jitter;
+  double prev_transit;
   _Atomic(uint64_t) outoforder_packets;
   _Atomic(uint64_t) omitted_outoforder_packets;
   _Atomic(uint64_t) cnt_error;
@@ -398,12 +398,13 @@ struct iperf_test
                                                restarts to make sure it is not
                                                stack */
   uint server_test_number; /* count number of tests performed by a server */
+  int  server_linger;
 
   char cookie[COOKIE_SIZE];
   //    struct iperf_stream *streams;               /* pointer to list of
   //    struct stream */
   SLIST_HEAD(slisthead, iperf_stream) streams;
-  struct iperf_settings* settings;
+  const struct iperf_settings* settings;
 
   SLIST_HEAD(plisthead, protocol) protocols;
 

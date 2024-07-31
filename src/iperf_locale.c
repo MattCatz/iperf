@@ -165,6 +165,7 @@ extern "C"
     "                            and client during the authentication "
     "process\n"
     "  --use-pkcs1-padding       use pkcs1 padding at your own risk\n"
+    "  --linger #                Wait for control socket to drain (in seconds)\n"
 #endif // HAVE_SSL
     "Client specific:\n"
     "  -c, --client <host>[%%<dev>] run in client mode, connecting to "
