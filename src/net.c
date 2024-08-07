@@ -413,11 +413,11 @@ Nread(int fd, char* buf, size_t count)
       return NET_HARDERROR;
     }
     if (r == 0) {
-      printf("Nread timeout %d\n", __LINE__);
+      printf("Nread(%d) timeout on fd -> %d\n", __LINE__, fd);
       return 0;
     }
     if (pfd.revents != POLLIN)
-      printf("Nread poll error (0x%x): %d\n", pfd.revents, __LINE__);
+      printf("Nread(%d) poll error (0x%x) on fd -> %d\n", __LINE__, pfd.revents, fd);
   }
 
   while (nleft > 0) {
@@ -461,11 +461,11 @@ Nread(int fd, char* buf, size_t count)
         return NET_HARDERROR;
       }
       if (r == 0) {
-        printf("Nread timeout %d\n", __LINE__);
+        printf("Nread(%d) timeout on fd -> %d\n", __LINE__, fd);
         break;
       }
       if (pfd.revents != POLLIN)
-        printf("Nread poll error (0x%x): %d\n", pfd.revents, __LINE__);
+        printf("Nread(%d) poll error (0x%x) on fd -> %d\n", __LINE__, pfd.revents, fd);
     }
   }
   return count - nleft;

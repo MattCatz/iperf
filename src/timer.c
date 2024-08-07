@@ -32,6 +32,7 @@
 #include <stdlib.h>     // for free, malloc
 #include <sys/time.h>   // for timeval
 #include <time.h>       // for NULL
+#include <stdio.h>
 
 static Timer* timers = NULL;
 static Timer* free_timers = NULL;

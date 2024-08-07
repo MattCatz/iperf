@@ -172,6 +172,8 @@ test_timer_proc(TimerClientData client_data, struct iperf_time* nowP)
 
   test->timer = NULL;
   test->done = 1;
+  if (test->debug_level >= 2)
+    fprintf(stderr, "Running timer: %s\n", __func__);
 }
 
 static void
@@ -181,10 +183,14 @@ client_stats_timer_proc(TimerClientData client_data, struct iperf_time* nowP)
 
   struct iperf_test* test = client_data.p;
 
+  if (test->debug_level >= 2)
+    fprintf(stderr, "Running timer: %s\n", __func__);
+
   if (test->done)
     return;
   if (test->stats_callback)
     test->stats_callback(test);
+
 }
 
 static void
@@ -193,6 +199,9 @@ client_reporter_timer_proc(TimerClientData client_data, struct iperf_time* nowP)
   (void)nowP;
 
   struct iperf_test* test = client_data.p;
+
+  if (test->debug_level >= 2)
+    fprintf(stderr, "Running timer: %s\n", __func__);
 
   if (test->done)
     return;
@@ -264,6 +273,9 @@ client_omit_timer_proc(TimerClientData client_data, struct iperf_time* nowP)
     tmr_reset(nowP, test->stats_timer);
   if (test->reporter_timer != NULL)
     tmr_reset(nowP, test->reporter_timer);
+
+  if (test->debug_level >= 2)
+    fprintf(stderr, "Running timer: %s\n", __func__);
 }
 
 static int
@@ -301,6 +313,7 @@ iperf_handle_message_client(struct iperf_test* test)
 {
   int rval;
   int32_t err;
+  signed char next_state;
 
   if (NULL == test) {
     iperf_err(NULL, "No test\n");
@@ -308,8 +321,7 @@ iperf_handle_message_client(struct iperf_test* test)
     return -1;
   }
   /*!!! Why is this read() and not Nread()? */
-  if ((rval = read(test->ctrl_sck, (char*)&test->state, sizeof(signed char))) <=
-      0) {
+  if ((rval = read(test->ctrl_sck, (char*)&next_state, sizeof(next_state))) <= 0) {
     if (rval == 0) {
       i_errno = IECTRLCLOSE;
       return -1;
@@ -319,8 +331,8 @@ iperf_handle_message_client(struct iperf_test* test)
     }
   }
 
-  signed char state = test->state;
-  switch (state) {
+  iperf_set_test_state(test, next_state);
+  switch (next_state) {
     case PARAM_EXCHANGE:
       if (iperf_exchange_parameters(test) < 0)
         return -1;
@@ -369,9 +381,9 @@ iperf_handle_message_client(struct iperf_test* test)
        */
       signed char oldstate = test->state;
       cpu_util(test->cpu_util);
-      test->state = DISPLAY_RESULTS;
+      iperf_set_test_state(test, DISPLAY_RESULTS);
       test->reporter_callback(test);
-      test->state = oldstate;
+      iperf_set_test_state(test, oldstate);
       return -1;
     case ACCESS_DENIED:
       i_errno = IEACCESSDENIED;
@@ -409,6 +421,8 @@ iperf_connect(struct iperf_test* test)
   }
 
   make_cookie(test->cookie);
+  if (test->verbose)
+    fprintf(stderr, "Generated cookie: %s\n", test->cookie);
 
   /* Create and connect the control channel */
   if (test->ctrl_sck < 0)
@@ -553,6 +567,28 @@ iperf_client_end(struct iperf_test* test)
   return 0;
 }
 
+static int
+check_for_timeout(struct iperf_time *last_receive_time, uint64_t rcv_timeout_us) 
+{
+  struct iperf_time now;
+  struct iperf_time diff_time;
+  uint64_t t_usecs;
+  int rc = 0;
+
+  iperf_time_now(&now);
+  if (iperf_time_diff(&now, last_receive_time, &diff_time) == 0) {
+    t_usecs = iperf_time_in_usecs(&diff_time);
+    if (t_usecs > rcv_timeout_us) {
+      rc = 1;
+    }
+  }
+
+  last_receive_time->secs = now.secs;
+  last_receive_time->usecs = now.usecs;
+
+  return rc;
+}
+
 int
 iperf_run_client(struct iperf_test* test)
 {
@@ -562,12 +598,11 @@ iperf_run_client(struct iperf_test* test)
   struct timeval timeout = {0};
   struct iperf_stream* sp;
   struct iperf_time last_receive_time;
-  struct iperf_time diff_time;
   iperf_size_t last_receive_blocks;
-  int64_t t_usecs;
-  int64_t timeout_us = -1;
-  int64_t rcv_timeout_us;
+  uint64_t timeout_us;
+  int64_t running_rcv_timeout, end_rcv_timeout;
   int i_errno_save;
+  uint64_t timeout_setting;
 
   if (NULL == test) {
     iperf_err(NULL, "No test\n");
@@ -604,71 +639,74 @@ iperf_run_client(struct iperf_test* test)
 
   /* Begin calculating CPU utilization */
   cpu_util(NULL);
+  end_rcv_timeout = (test->settings->rcv_timeout.secs * SEC_TO_US) + test->settings->rcv_timeout.usecs;
   if (test->mode != SENDER)
-    rcv_timeout_us = (test->settings->rcv_timeout.secs * SEC_TO_US) +
-                     test->settings->rcv_timeout.usecs;
+    running_rcv_timeout = end_rcv_timeout;
   else
-    rcv_timeout_us = 0;
+    running_rcv_timeout = 0;
 
-  iperf_time_now(
-    &last_receive_time); // Initialize last time something was received
+  // Initialize last time something was received
+  iperf_time_now(&last_receive_time);
   last_receive_blocks = 0;
 
   startup = 1;
   while (test->state != IPERF_DONE) {
+    timeout_us = SEC_TO_US;
     iperf_time_now(&now);
     const int pending = tmr_timeout(&now, &timeout);
-
-    // In reverse active mode client ensures data is received
-    if (test->state == TEST_RUNNING && rcv_timeout_us > 0) {
-      timeout_us = -1;
-      if (pending >= 1) {
-        timeout_us = (timeout.tv_sec * SEC_TO_US) + timeout.tv_usec;
-      }
-      /* Cap the maximum select timeout at 1 second */
-      if (timeout_us > SEC_TO_US) {
-        timeout_us = SEC_TO_US;
-      }
-      if (timeout_us < 0 || timeout_us > rcv_timeout_us) {
-        timeout_us = rcv_timeout_us;
+    if (pending) {
+      timeout_us = (timeout.tv_sec * SEC_TO_US) + timeout.tv_usec;
+      if (timeout_us == 0) {
+        timeout_us = timeout_us == 0 ? 1 : timeout_us;
+        if (test->debug_level >= 1)
+          warning("Pending timer missed deadline");
       }
     }
 
+    signed char state = test->state;
+    switch (state)
+    {
+      case TEST_RUNNING:
+        timeout_setting = (uint64_t) running_rcv_timeout;
+        break;
+      case TEST_END:
+      case EXCHANGE_RESULTS:
+      case DISPLAY_RESULTS:
+        timeout_setting = (uint64_t) end_rcv_timeout;
+        break;
+      default:
+        timeout_setting = 0;
+        break;
+    }
+
     struct timespec timeout_ts;
-    timeout_ts.tv_sec = timeout.tv_sec;
-    timeout_ts.tv_nsec = timeout.tv_usec * 1000;
-    result = ppoll(&(test->poll_ctrl), 1, pending ? &timeout_ts : NULL, NULL);
+    if (timeout_setting > 0 && timeout_us > timeout_setting) {
+      timeout_us = timeout_setting;
+    }
+
+    timeout_ts.tv_nsec = timeout_us % SEC_TO_US;
+    timeout_ts.tv_sec = (timeout_us - timeout_ts.tv_nsec) / SEC_TO_US;
+    timeout_ts.tv_nsec = timeout_ts.tv_nsec * 1000;
+
+    result = ppoll(&(test->poll_ctrl), 1, timeout_us ? &timeout_ts : NULL, NULL);
     if (result < 0 && errno != EINTR) {
       i_errno = IESELECT;
       goto cleanup_and_fail;
-    } else if (result == 0 && test->state == TEST_RUNNING &&
-               rcv_timeout_us > 0) {
-      /*
-       * If nothing was received in non-reverse running state
-       * then probably something got stuck - either client,
-       * server or network, and test should be terminated./
-       */
-      iperf_time_now(&now);
-      if (iperf_time_diff(&now, &last_receive_time, &diff_time) == 0) {
-        t_usecs = iperf_time_in_usecs(&diff_time);
-        if (t_usecs > rcv_timeout_us) {
-          /* Idle timeout if no new blocks received */
-          if (test->blocks_received == last_receive_blocks) {
-            i_errno = IENOMSG;
-            goto cleanup_and_fail;
-          }
-        }
-      }
     } else if (result > 0) {
       if (test->poll_ctrl.revents != POLLIN)
-        printf(
-          "CTRL poll error (0x%x): %d\n", test->poll_ctrl.revents, __LINE__);
+        printf("CTRL poll error (0x%x): %d\n", test->poll_ctrl.revents, __LINE__);
+    } else {
+      if (timeout_setting && test->blocks_received == last_receive_blocks) {
+        if (check_for_timeout(&last_receive_time, timeout_setting)) {
+          i_errno = IENOMSG;
+          goto cleanup_and_fail;
+        }
+      }
     }
 
     /* See if the test is making progress */
     if (test->blocks_received > last_receive_blocks) {
       last_receive_blocks = test->blocks_received;
-      last_receive_time = now;
     }
 
     if (result > 0) {
@@ -698,11 +736,11 @@ iperf_run_client(struct iperf_test* test)
             goto cleanup_and_fail;
           }
           if (test->debug_level >= DEBUG_LEVEL_INFO) {
-            iperf_printf(test, "Thread FD %d created\n", sp->socket);
+            fprintf(stderr, "Thread FD %d created\n", sp->socket);
           }
         }
         if (test->debug_level >= DEBUG_LEVEL_INFO) {
-          iperf_printf(test, "All threads created\n");
+          fprintf(stderr, "All threads created\n");
         }
         if (pthread_attr_destroy(&attr) != 0) {
           i_errno = IEPTHREADATTRDESTROY;
@@ -756,12 +794,12 @@ iperf_run_client(struct iperf_test* test)
               goto cleanup_and_fail;
             }
             if (test->debug_level >= DEBUG_LEVEL_INFO) {
-              iperf_printf(test, "Thread FD %d stopped\n", sp->socket);
+              fprintf(stderr, "Thread FD %d stopped\n", sp->socket);
             }
           }
         }
         if (test->debug_level >= DEBUG_LEVEL_INFO) {
-          iperf_printf(test, "Sender threads stopped\n");
+          fprintf(stderr, "Sender threads stopped\n");
         }
 
         /* Yes, done!  Send TEST_END. */
@@ -799,12 +837,12 @@ iperf_run_client(struct iperf_test* test)
         goto cleanup_and_fail;
       }
       if (test->debug_level >= DEBUG_LEVEL_INFO) {
-        iperf_printf(test, "Thread FD %d stopped\n", sp->socket);
+        fprintf(stderr, "Thread FD %d stopped\n", sp->socket);
       }
     }
   }
   if (test->debug_level >= DEBUG_LEVEL_INFO) {
-    iperf_printf(test, "Receiver threads stopped\n");
+    fprintf(stderr, "Receiver threads stopped\n");
   }
 
   if (test->json_output) {
@@ -844,11 +882,11 @@ cleanup_and_fail:
       }
     }
     if (test->debug_level >= DEBUG_LEVEL_INFO) {
-      iperf_printf(test, "Thread FD %d stopped\n", sp->socket);
+      fprintf(stderr, "Thread FD %d stopped\n", sp->socket);
     }
   }
   if (test->debug_level >= DEBUG_LEVEL_INFO) {
-    iperf_printf(test, "All threads stopped\n");
+    fprintf(stderr, "All threads stopped\n");
   }
   i_errno = i_errno_save;
 

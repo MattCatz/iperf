@@ -404,7 +404,7 @@ struct iperf_test
   //    struct iperf_stream *streams;               /* pointer to list of
   //    struct stream */
   SLIST_HEAD(slisthead, iperf_stream) streams;
-  const struct iperf_settings* settings;
+  struct iperf_settings* settings;
 
   SLIST_HEAD(plisthead, protocol) protocols;
 

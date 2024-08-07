@@ -523,6 +523,8 @@ iperf_set_test_stats_interval(struct iperf_test* ipt, double stats_interval)
 void
 iperf_set_test_state(struct iperf_test* ipt, signed char state)
 {
+  if (ipt->debug_level >= 1)
+    fprintf(stderr, "Local state change to: %d\n",state);
   ipt->state = state;
 }
 
@@ -1303,8 +1305,6 @@ iperf_parse_arguments(struct iperf_test* test, int argc, char** argv)
   FILE* ptr_file;
 #endif /* HAVE_SSL */
 
-  struct iperf_settings* settings = (struct iperf_settings*) test->settings;
-
   while ((flag = getopt_long(
             argc,
             argv,
@@ -1855,9 +1855,6 @@ iperf_parse_arguments(struct iperf_test* test, int argc, char** argv)
   } else if (test->role == 'c' && (test->server_skew_threshold != 0)) {
     i_errno = IESERVERONLY;
     return -1;
-  } else if (test->role == 'c' && rcv_timeout_flag && test->mode == SENDER) {
-    i_errno = IERVRSONLYRCVTIMEOUT;
-    return -1;
   } else if (test->role == 's' &&
              (server_rsa_private_key || test->server_authorized_users) &&
              !(server_rsa_private_key && test->server_authorized_users)) {
@@ -2026,11 +2023,16 @@ int
 iperf_set_send_state(struct iperf_test* test, signed char state)
 {
   if (test->ctrl_sck >= 0) {
+    if (test->debug_level >= 1)
+      fprintf(stderr, "Setting local state and forwarding to peer: %d\n", state);
     test->state = state;
     if (Nwrite(test->ctrl_sck, (char*)&state, sizeof(state)) < 0) {
       i_errno = IESENDMESSAGE;
       return -1;
     }
+  } else {
+    if (test->debug_level >= 1)
+      fprintf(stderr, "Ignoring state change becaues control socket is closed: %d", state);
   }
   return 0;
 }
@@ -2223,6 +2225,9 @@ send_timer_proc(TimerClientData client_data, struct iperf_time* nowP)
   ** checking the flag.
   */
   iperf_check_throttle(sp, nowP);
+
+  if (sp->test->debug >= 2)
+    fprintf(stderr, "Running timer: %s\n", __func__);
 }
 
 int
@@ -3486,7 +3491,7 @@ iperf_reset_test(struct iperf_test* test)
 #if defined(HAVE_CPUSET_SETAFFINITY)
   CPU_ZERO(&test->cpumask);
 #endif /* HAVE_CPUSET_SETAFFINITY */
-  test->state = 0;
+  iperf_set_test_state(test, 0);
 
   test->ctrl_sck = -1;
   test->listener = -1;
@@ -3735,7 +3740,7 @@ iperf_print_intermediate(struct iperf_test* test)
       iperf_time_diff(
         &irp->interval_start_time, &irp->interval_end_time, &temp_time);
       double interval_len = iperf_time_in_secs(&temp_time);
-      if (test->debug) {
+      if (test->debug_level >= 3) {
         printf("interval_len %f bytes_transferred %" PRIu64 "\n",
                interval_len,
                irp->bytes_transferred);
@@ -3749,7 +3754,7 @@ iperf_print_intermediate(struct iperf_test* test)
       if (interval_len >= test->stats_interval * 0.10 ||
           irp->bytes_transferred > 0) {
         interval_ok = 1;
-        if (test->debug) {
+        if (test->debug_level >= 3) {
           printf("interval forces keep\n");
         }
       }
@@ -4824,8 +4829,8 @@ iperf_print_results(struct iperf_test* test)
       if (test->verbose) {
         if (stream_must_be_sender) {
           if (test->bidirectional) {
-            iperf_printf(
-              test,
+            fprintf(
+              stderr,
               report_cpu,
               report_local,
               stream_must_be_sender ? report_sender : report_receiver,
@@ -4837,8 +4842,8 @@ iperf_print_results(struct iperf_test* test)
               test->remote_cpu_util[0],
               test->remote_cpu_util[1],
               test->remote_cpu_util[2]);
-            iperf_printf(
-              test,
+            fprintf(
+              stderr,
               report_cpu,
               report_local,
               !stream_must_be_sender ? report_sender : report_receiver,
@@ -4851,8 +4856,8 @@ iperf_print_results(struct iperf_test* test)
               test->remote_cpu_util[1],
               test->remote_cpu_util[2]);
           } else
-            iperf_printf(
-              test,
+            fprintf(
+              stderr,
               report_cpu,
               report_local,
               stream_must_be_sender ? report_sender : report_receiver,
@@ -4875,10 +4880,10 @@ iperf_print_results(struct iperf_test* test)
             rcv_congestion = test->congestion_used;
           }
           if (snd_congestion) {
-            iperf_printf(test, "snd_tcp_congestion %s\n", snd_congestion);
+            fprintf(stderr, "snd_tcp_congestion %s\n", snd_congestion);
           }
           if (rcv_congestion) {
-            iperf_printf(test, "rcv_tcp_congestion %s\n", rcv_congestion);
+            fprintf(stderr, "rcv_tcp_congestion %s\n", rcv_congestion);
           }
         }
       }
@@ -5566,16 +5571,13 @@ iperf_got_sigend(struct iperf_test* test)
     test->done = 1;
     cpu_util(test->cpu_util);
     test->stats_callback(test);
-    test->state = DISPLAY_RESULTS; /* change local state only */
+    iperf_set_test_state(test, DISPLAY_RESULTS); /* change local state only */
     if (test->on_test_finish)
       test->on_test_finish(test);
     test->reporter_callback(test);
   }
 
-  if (test->ctrl_sck >= 0) {
-    test->state = (test->role == 'c') ? CLIENT_TERMINATE : SERVER_TERMINATE;
-    (void)Nwrite(test->ctrl_sck, (char*)&test->state, sizeof(signed char));
-  }
+  iperf_set_send_state(test,(test->role == 'c') ? CLIENT_TERMINATE : SERVER_TERMINATE);
   i_errno = (test->role == 'c') ? IECLIENTTERM : IESERVERTERM;
   iperf_errexit(test, "interrupt - %s", iperf_strerror(i_errno));
 }

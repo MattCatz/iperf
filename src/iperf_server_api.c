@@ -238,7 +238,7 @@ iperf_handle_message_server(struct iperf_test* test)
     if (rval == 0) {
       iperf_err(test, "the client has unexpectedly closed the connection");
       i_errno = IECTRLCLOSE;
-      test->state = IPERF_DONE;
+      iperf_set_test_state(test, IPERF_DONE);
       return 0;
     } else {
       i_errno = IERECVMESSAGE;
@@ -246,7 +246,7 @@ iperf_handle_message_server(struct iperf_test* test)
     }
   }
 
-  test->state = state;
+  iperf_set_test_state(test, state);
   switch (state) {
     case TEST_START:
       break;
@@ -277,9 +277,9 @@ iperf_handle_message_server(struct iperf_test* test)
       // ending summary statistics.
       signed char oldstate = test->state;
       cpu_util(test->cpu_util);
-      test->state = DISPLAY_RESULTS;
+      iperf_set_test_state(test, DISPLAY_RESULTS);
       test->reporter_callback(test);
-      test->state = oldstate;
+      iperf_set_test_state(test, oldstate);
 
       // XXX: Remove this line below!
       iperf_err(test, "the client has terminated");
@@ -287,7 +287,7 @@ iperf_handle_message_server(struct iperf_test* test)
       {
         shutdown(sp->socket, SHUT_WR);
       }
-      test->state = IPERF_DONE;
+      iperf_set_test_state(test, IPERF_DONE);
       break;
     default:
       i_errno = IEMESSAGE;
@@ -303,6 +303,9 @@ server_timer_proc(TimerClientData client_data, struct iperf_time* nowP)
   (void)nowP;
   struct iperf_test* test = client_data.p;
 
+  if (test->debug_level >= 2)
+    fprintf(stderr, "Running timer: %s\n", __func__);
+
   test->timer = NULL;
   if (test->done)
     return;
@@ -316,6 +319,9 @@ server_stats_timer_proc(TimerClientData client_data, struct iperf_time* nowP)
 
   struct iperf_test* test = client_data.p;
 
+  if (test->debug_level >= 2)
+    fprintf(stderr, "Running timer: %s\n", __func__);
+
   if (test->done)
     return;
   if (test->stats_callback)
@@ -328,6 +334,9 @@ server_reporter_timer_proc(TimerClientData client_data, struct iperf_time* nowP)
   (void)nowP;
 
   struct iperf_test* test = client_data.p;
+
+  if (test->debug_level >= 2)
+    fprintf(stderr, "Running timer: %s\n", __func__);
 
   if (test->done)
     return;
@@ -403,6 +412,9 @@ server_omit_timer_proc(TimerClientData client_data, struct iperf_time* nowP)
     tmr_reset(nowP, test->stats_timer);
   if (test->reporter_timer != NULL)
     tmr_reset(nowP, test->reporter_timer);
+
+  if (test->debug_level >= 2)
+    fprintf(stderr, "Running timer: %s\n", __func__);
 }
 
 static int
@@ -460,13 +472,13 @@ cleanup_server(struct iperf_test* test, int rc)
       }
     }
     if (test->debug_level >= DEBUG_LEVEL_INFO) {
-      iperf_printf(test, "Thread FD %d stopped\n", sp->socket);
+      fprintf(stderr, "Thread FD %d stopped\n", sp->socket);
     }
   }
   i_errno = i_errno_save;
 
   if (test->debug_level >= DEBUG_LEVEL_INFO) {
-    iperf_printf(test, "All threads stopped\n");
+    fprintf(stderr, "All threads stopped\n");
   }
 
   /* Free streams */
@@ -485,18 +497,18 @@ cleanup_server(struct iperf_test* test, int rc)
 
   /* Close open test sockets */
   if (test->ctrl_sck > -1) {
-    shutdown(sp->socket, SHUT_WR);
+    shutdown(test->ctrl_sck, SHUT_WR);
     if (close(test->ctrl_sck) != 0)
       perror("Trouble closing control socket: ");
     test->ctrl_sck = -1;
   }
   if (test->listener > -1) {
-    shutdown(sp->socket, SHUT_WR);
+    shutdown(test->listener, SHUT_WR);
     close(test->listener);
     test->listener = -1;
   }
   if (test->prot_listener > -1) { // May remain open if create socket failed
-    shutdown(sp->socket, SHUT_WR);
+    shutdown(test->prot_listener, SHUT_WR);
     close(test->prot_listener);
     test->prot_listener = -1;
   }
@@ -590,7 +602,7 @@ iperf_run_server(struct iperf_test* test)
     &last_receive_time); // Initialize last time something was received
   last_receive_blocks = 0;
 
-  test->state = IPERF_START;
+  iperf_set_test_state(test, IPERF_START);
   send_streams_accepted = 0;
   rec_streams_accepted = 0;
   rcv_timeout_us = (test->settings->rcv_timeout.secs * SEC_TO_US) +
@@ -628,7 +640,11 @@ iperf_run_server(struct iperf_test* test)
     }
 
     iperf_time_now(&now);
-    const int pending = tmr_timeout(&now, &used_timeout);
+    int pending = tmr_timeout(&now, &used_timeout);
+    if (pending && test->state == TEST_RUNNING)
+      if (test->debug_level >= 1)
+        if ((used_timeout.tv_sec * SEC_TO_US) + used_timeout.tv_usec == 0)
+          warning("Pending timer missed deadline");
 
     // Ensure select() will timeout to allow handling error cases that
     // require server restart
@@ -636,6 +652,7 @@ iperf_run_server(struct iperf_test* test)
       if (pending == 0 && test->settings->idle_timeout > 0) {
         used_timeout.tv_sec = test->settings->idle_timeout;
         used_timeout.tv_usec = 0;
+        pending = 1;
       }
     } else if (test->mode != SENDER) { // In non-reverse active mode server
                                        // ensures data is received
@@ -961,12 +978,12 @@ iperf_run_server(struct iperf_test* test)
               return cleanup_server(test, -1);
             }
             if (test->debug_level >= DEBUG_LEVEL_INFO) {
-              iperf_printf(test, "Thread FD %d created\n", sp->socket);
+              fprintf(stderr, "Thread FD %d created\n", sp->socket);
             }
             sp->forked = 1;
           }
           if (test->debug_level >= DEBUG_LEVEL_INFO) {
-            iperf_printf(test, "All threads created\n");
+            fprintf(stderr, "All threads created\n");
           }
           if (pthread_attr_destroy(&attr) != 0) {
             i_errno = IEPTHREADATTRDESTROY;
